@@ -1,0 +1,6 @@
+[package]
+name = "aliyun_sync"
+version = "0.1.0"
+authors = ["test <test@test>"]
+
+[dependencies]
