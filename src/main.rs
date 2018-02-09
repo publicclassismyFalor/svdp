@@ -64,8 +64,13 @@ fn main() {
         },
     }
 
+    let mut tids = Vec::new();
     for region in regions.into_iter() {
-        get_meta(region);
+        tids.push(thread::spawn(move || get_meta(region)));
+    }
+
+    for tid in tids {
+        tid.join();
     }
 
 //    let mut cmd = Command::new(CMD);
@@ -195,10 +200,10 @@ fn get_region() -> Result<Vec<String>, String> {
  * return HashMap(contains meta info of all ecs+disk+netif)
  * @param start_time: unix time_stamp
  */
-fn get_meta(region: String) -> Result<HashMap<String, ECS>, Error> {
+fn get_meta(region: String) {
     let mut holder = HashMap::new();
 
-    let extra = vec![
+    let mut extra = vec![
         "-domain".to_owned(),
         "ecs.aliyuncs.com".to_owned(),
         "-apiName".to_owned(),
@@ -206,92 +211,97 @@ fn get_meta(region: String) -> Result<HashMap<String, ECS>, Error> {
         "-apiVersion".to_owned(),
         "2014-05-26".to_owned(),
         "-region".to_owned(),
-        region,
+        region.clone(),  // tmp ...
         "Action".to_owned(),
         "DescribeInstances".to_owned(),
+        "PageSize".to_owned(),
+        "100".to_owned(),
     ];
 
-    let cmd_ret: Vec<u8> = cmd_exec(extra.clone()) ?;
-
-    let v: Value = serde_json::from_slice(&cmd_ret).unwrap_or(Value::Null);
-    if Value::Null == v {
-        return Err(Error::new(ErrorKind::Other, "E1!".to_string()));
+    let ret: Vec<u8>;
+    if let Ok(cmd_ret) = cmd_exec(extra.clone()) {
+        ret = cmd_ret;
+    } else {
+        return;
     }
 
-    let mut total_pages: i32 = 0;
-    if let Value::String(ref total) = v["TotalCount"] {
-        total_pages = total.parse().unwrap_or(0);
+    let v: Value = serde_json::from_slice(&ret).unwrap_or(Value::Null);
+    if Value::Null == v {
+        return;
+    }
+
+    let mut total_pages: u64 = 0;
+    if let Value::Number(ref total) = v["TotalCount"] {
+        total_pages = total.as_u64().unwrap_or(0);
+        if 0 == total_pages {
+        } else if 0 == total_pages % 100 {
+            total_pages = total_pages / 100;
+        } else {
+            total_pages = 1 + total_pages / 100;
+        }
     } else {
-        return Err(Error::new(ErrorKind::Other, "E2!".to_string()));
+        return;
     }
 
     let (tx, rx) = mpsc::channel();
 
     if 0 < total_pages {
-        ecs_insert(&mut holder, cmd_ret);
+        meta_insert(&mut holder, ret);
 
-        for x in 2..total_pages {
+        extra.push("PageNumber".to_owned());
+        for x in 2..(total_pages + 1) {
             let mut extra_ = extra.clone();
             let tx_ = mpsc::Sender::clone(&tx);
             thread::spawn(move || {
-                let page_num = x.to_string();
-                extra_.push("PageNumber".to_owned());
-                extra_.push(page_num);
+                extra_.push(x.to_string());
 
-                if let Ok(cmd_ret) = cmd_exec(extra_) {
-                    tx_.send(cmd_ret);
+                if let Ok(cmd_ret_) = cmd_exec(extra_) {
+                    tx_.send(cmd_ret_).unwrap_or_else(|e| eprintln!("mpsc send err: {}", e));
                 }
             });
         }
 
-        for z in rx {
-            ecs_insert(&mut holder, z);
+        for x in 2..(total_pages + 1) {
+            meta_insert(&mut holder, rx.recv().unwrap());
         }
     }
 
     get_meta_disk(&mut holder);
     get_meta_netif(&mut holder);
-
-    //for x in 0.. {
-    //    if Value::Null == v["Regions"]["Region"][x] {
-    //        break;
-    //    } else {
-    //        /* map 方式解析出来的 json string 是带引号的，需要处理掉 */
-    //        if let Value::String(ref s) = v["Regions"]["Region"][x]["RegionId"] {
-    //            res.push(s.to_string());
-    //        } else {
-    //            return Err("json parse err".to_string());
-    //        }
-    //    }
-    //}
-
-    Ok(holder)
 }
 
-fn get_meta_disk(holder: &mut HashMap<String, ECS>) {
+fn get_meta_disk(holder: &mut HashMap<String, Option<ECS>>) {
 
 }
 
-fn get_meta_netif(holder: &mut HashMap<String, ECS>) {
+fn get_meta_netif(holder: &mut HashMap<String, Option<ECS>>) {
 
 }
 
-fn ecs_insert(holder: &mut HashMap<String, ECS>, data: Vec<u8>) {
+fn meta_insert(holder: &mut HashMap<String, Option<ECS>>, data: Vec<u8>) {
+    let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
+    if Value::Null == v {
+        return;
+    }
 
+    for x in 0.. {
+        if Value::Null == v["Instances"]["Instance"][x] {
+            break;
+        } else {
+            /* map 方式解析出来的 json string 是带引号的，需要处理掉 */
+            if let Value::String(ref id) = v["Instances"]["Instance"][x]["InstanceId"] {
+                holder.insert((*id).clone(), None);
+            } else {
+                eprintln!("InstanceId: json parse err!");
+            }
+        }
+    }
 }
 
-fn disk_insert(holder: &mut HashMap<String, ECS>) {
-
-}
-
-fn netif_insert(holder: &mut HashMap<String, ECS>) {
-
-}
-
-//fn sv_parse(region &str, meta &mut HashMap<String, ECS>, start_time: i32) -> Result<(), String> {
+//fn meta_insert_disk(holder: &mut HashMap<String, Option<ECS>>) {
 //
 //}
 //
-//fn write_db(data &mut HashMap<String, ECS>) -> Result<(), String> {
+//fn meta_insert_netif(holder: &mut HashMap<String, Option<ECS>>) {
 //
 //}
