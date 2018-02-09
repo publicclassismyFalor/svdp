@@ -7,7 +7,8 @@ use std::process::Command;
 use std::collections::HashMap;
 
 use std::thread;
-use std::sync::{Mutex, Arc};
+use std::sync::mpsc;
+//use std::time::Duration;
 
 use std::io::{Error, ErrorKind};
 
@@ -55,7 +56,7 @@ struct ECS {
 fn main() {
     let regions;
 
-    match region_parse() {
+    match get_region() {
         Ok(res) => regions = res,
         Err(e) => {
             eprintln!("{}", e);
@@ -64,7 +65,7 @@ fn main() {
     }
 
     for region in regions.into_iter() {
-        meta_parse(region);
+        get_meta(region);
     }
 
 //    let mut cmd = Command::new(CMD);
@@ -131,11 +132,11 @@ fn main() {
 //    }
 }
 
-fn cmd_exec(mut extra: Vec<&str>) -> Result<Vec<u8>, Error> {
-    let mut argv = Vec::new();
+fn cmd_exec(mut extra: Vec<String>) -> Result<Vec<u8>, Error> {
+    let mut argv: Vec<String> = Vec::new();
 
     for x in ARGV.iter() {
-        argv.push(*x);
+        argv.push((**x).to_string());
     }
 
     argv.append(&mut extra);
@@ -149,17 +150,17 @@ fn cmd_exec(mut extra: Vec<&str>) -> Result<Vec<u8>, Error> {
     }
 }
 
-fn region_parse() -> Result<Vec<String>, String> {
-    let mut res = Vec::new();
+fn get_region() -> Result<Vec<String>, String> {
+    let mut res: Vec<String> = Vec::new();
     let extra = vec![
-        "-domain",
-        "ecs.aliyuncs.com",
-        "-apiName",
-        "DescribeRegions",
-        "-apiVersion",
-        "2014-05-26",
-        "Action",
-        "DescribeRegions",
+        "-domain".to_owned(),
+        "ecs.aliyuncs.com".to_owned(),
+        "-apiName".to_owned(),
+        "DescribeRegions".to_owned(),
+        "-apiVersion".to_owned(),
+        "2014-05-26".to_owned(),
+        "Action".to_owned(),
+        "DescribeRegions".to_owned(),
     ];
 
     match cmd_exec(extra) {
@@ -194,26 +195,23 @@ fn region_parse() -> Result<Vec<String>, String> {
  * return HashMap(contains meta info of all ecs+disk+netif)
  * @param start_time: unix time_stamp
  */
-fn meta_parse(region: String) -> Result<HashMap<String, ECS>, Error> {
-    let holder = HashMap::new();
-    let holder_arc = Arc::new(Mutex::new(&holder));
+fn get_meta(region: String) -> Result<HashMap<String, ECS>, Error> {
+    let mut holder = HashMap::new();
 
     let extra = vec![
-        "-domain",
-        "ecs.aliyuncs.com",
-        "-apiName",
-        "DescribeInstances",
-        "-apiVersion",
-        "2014-05-26",
-        "-region",
-        &region,
-        "Action",
-        "DescribeInstances",
-        "PageSize",
-        "100",
+        "-domain".to_owned(),
+        "ecs.aliyuncs.com".to_owned(),
+        "-apiName".to_owned(),
+        "DescribeInstances".to_owned(),
+        "-apiVersion".to_owned(),
+        "2014-05-26".to_owned(),
+        "-region".to_owned(),
+        region,
+        "Action".to_owned(),
+        "DescribeInstances".to_owned(),
     ];
 
-    let cmd_ret: Vec<u8> = cmd_exec(extra) ?;
+    let cmd_ret: Vec<u8> = cmd_exec(extra.clone()) ?;
 
     let v: Value = serde_json::from_slice(&cmd_ret).unwrap_or(Value::Null);
     if Value::Null == v {
@@ -227,12 +225,32 @@ fn meta_parse(region: String) -> Result<HashMap<String, ECS>, Error> {
         return Err(Error::new(ErrorKind::Other, "E2!".to_string()));
     }
 
-    //if 0 < total_pages {
+    let (tx, rx) = mpsc::channel();
 
-    //    for x in 2..total_pages {
+    if 0 < total_pages {
+        ecs_insert(&mut holder, cmd_ret);
 
-    //    }
-    //}
+        for x in 2..total_pages {
+            let mut extra_ = extra.clone();
+            let tx_ = mpsc::Sender::clone(&tx);
+            thread::spawn(move || {
+                let page_num = x.to_string();
+                extra_.push("PageNumber".to_owned());
+                extra_.push(page_num);
+
+                if let Ok(cmd_ret) = cmd_exec(extra_) {
+                    tx_.send(cmd_ret);
+                }
+            });
+        }
+
+        for z in rx {
+            ecs_insert(&mut holder, z);
+        }
+    }
+
+    get_meta_disk(&mut holder);
+    get_meta_netif(&mut holder);
 
     //for x in 0.. {
     //    if Value::Null == v["Regions"]["Region"][x] {
@@ -247,8 +265,27 @@ fn meta_parse(region: String) -> Result<HashMap<String, ECS>, Error> {
     //    }
     //}
 
-    holder_arc.lock();
     Ok(holder)
+}
+
+fn get_meta_disk(holder: &mut HashMap<String, ECS>) {
+
+}
+
+fn get_meta_netif(holder: &mut HashMap<String, ECS>) {
+
+}
+
+fn ecs_insert(holder: &mut HashMap<String, ECS>, data: Vec<u8>) {
+
+}
+
+fn disk_insert(holder: &mut HashMap<String, ECS>) {
+
+}
+
+fn netif_insert(holder: &mut HashMap<String, ECS>) {
+
 }
 
 //fn sv_parse(region &str, meta &mut HashMap<String, ECS>, start_time: i32) -> Result<(), String> {
