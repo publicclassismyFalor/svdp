@@ -3,49 +3,49 @@ extern crate serde_json;
 use serde_json::Value;
 
 use std::process::Command;
-//use std::collections::HashMap;
+use std::collections::HashMap;
 use std::str;
 
 const CMD: &str = "/tmp/aliyun_cmdb";
 const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
 
-// struct Disk {
-//     device: String,  /* device name: /dev/vda */
-// 
-//     total: u64,  /* M */
-//     spent: u64,
-//     rd: u32,  /* kbytes */
-//     wr: u32,
-//     rdio: u32,  /* tps */
-//     wrio: u32,
-// }
-// 
-// struct NetIf {
-//     device: String,  /* device name: eth0 */
-// 
-//     rd: u32,  /* kbytes */
-//     wr: u32,
-//     rdio: u32,  /* tps */
-//     wrio: u32,
-// }
-// 
-// struct Data {
-//     cpu_rate: u16,
-//     mem_rate: u16,
-//     load: [u16;2],  /* load_5m/load_15m */
-//     tcp_conn: u32,
-// 
-//     disk: Vec<Disk>,
-//     net_if: Vec<NetIf>,
-// }
-// 
-// /* key: instance_id */
-// struct Ecs {
-//     data: HashMap<i32, Data>,  /* K: time_stamp, V: Data */
-// 
-//     disk: HashMap<String, String>,  /* K: device, V: device_id */
-//     net_if: HashMap<String, String>,
-// }
+struct Disk {
+    device: String,  /* device name: /dev/vda */
+
+    total: u64,  /* M */
+    spent: u64,
+    rd: u32,  /* kbytes */
+    wr: u32,
+    rdio: u32,  /* tps */
+    wrio: u32,
+}
+
+struct NetIf {
+    device: String,  /* device name: eth0 */
+
+    rd: u32,  /* kbytes */
+    wr: u32,
+    rdio: u32,  /* tps */
+    wrio: u32,
+}
+
+struct Data {
+    cpu_rate: u16,
+    mem_rate: u16,
+    load: [u16;2],  /* load_5m/load_15m */
+    tcp_conn: u32,
+
+    disk: Vec<Disk>,
+    net_if: Vec<NetIf>,
+}
+
+/* key: instance_id */
+struct ECS {
+    data: HashMap<i32, Data>,  /* K: time_stamp, V: Data */
+
+    disk: HashMap<String, String>,  /* K: device, V: device_id */
+    net_if: HashMap<String, String>,
+}
 
 fn main() {
     let regions;
@@ -58,7 +58,9 @@ fn main() {
         },
     }
 
-    println!("{:#?}", regions);
+    for region in regions.into_iter() {
+        meta_parse(region);
+    }
 
 //    let mut cmd = Command::new(CMD);
 //    let mut argv = Vec::new();
@@ -124,12 +126,31 @@ fn main() {
 //    }
 }
 
-fn region_parse() -> Result<Vec<String>, String> {
-    let mut res = Vec::new();
-
+fn cmd_exec(mut extra: Vec<&str>) -> Result<Vec<u8>, String> {
     let mut cmd = Command::new(CMD);
     let mut argv = Vec::new();
-    let mut suffix = vec![
+
+    for x in ARGV.iter() {
+        argv.push(*x);
+    }
+
+    argv.append(&mut extra);
+
+    for x in argv.iter() {
+        println!("{}", x);
+    }
+
+    cmd.args(argv);
+
+    match cmd.output() {
+        Ok(o) => return Ok(o.stdout),
+        Err(e) => return Err(e.to_string()),
+    }
+}
+
+fn region_parse() -> Result<Vec<String>, String> {
+    let mut res = Vec::new();
+    let extra = vec![
         "-domain",
         "ecs.aliyuncs.com",
         "-apiName",
@@ -140,31 +161,68 @@ fn region_parse() -> Result<Vec<String>, String> {
         "DescribeRegions",
     ];
 
-    for x in ARGV.iter() {
-        argv.push(*x);
-    }
-
-    argv.append(&mut suffix);
-
-    cmd.args(argv);
-
-    if let Ok(o) = cmd.output() {
-        let v = serde_json::from_slice::<Value>(& o.stdout).unwrap_or(Value::Null); 
-        if Value::Null == v {
-            return Err("!!!!".to_string());
-        }
-
-        for x in 0.. {
-            if Value::Null == v["Regions"]["Region"][x] {
-                break;
-            } else {
-                res.push(v["Regions"]["Region"][x]["RegionId"].to_string());
+    match cmd_exec(extra) {
+        Ok(o) => {
+            let v: Value = serde_json::from_slice(&o).unwrap_or(Value::Null);
+            if Value::Null == v {
+                return Err("E0!".to_string());
             }
-        }
 
-    } else {
-        return Err("!!!!".to_string());
+            for x in 0.. {
+                if Value::Null == v["Regions"]["Region"][x] {
+                    break;
+                } else {
+                    res.push(v["Regions"]["Region"][x]["RegionId"].to_string());
+                }
+            }
+            println!("{:?}", res);
+        },
+        Err(e) => {
+            return Err(e);
+        }
     }
 
     Ok(res)
 }
+
+/*
+ * return HashMap(contains meta info of all ecs+disk+netif)
+ * @param start_time: unix time_stamp
+ */
+fn meta_parse(region: String) -> Result<HashMap<String, ECS>, String> {
+    let holder: HashMap<String, ECS> = HashMap::new();
+
+    let extra = vec![
+        "-domain",
+        "ecs.aliyuncs.com",
+        "-apiName",
+        "DescribeInstances",
+        "-apiVersion",
+        "2014-05-26",
+        "-region",
+        &region[1..(region.len() - 1)],  /* map 方式解析出来的 json string 是带引号的 */
+        "Action",
+        "DescribeInstances",
+        "PageSize",
+        "100",
+    ];
+
+    match cmd_exec(extra) {
+        Ok(o) => {
+            println!("{:?}", String::from_utf8_lossy(&o));
+        },
+        Err(e) => {
+            println!("{}", e);
+        }
+    }
+
+    Ok(holder)
+}
+
+//fn sv_parse(region &str, meta &mut HashMap<String, ECS>, start_time: i32) -> Result<(), String> {
+//
+//}
+//
+//fn write_db(data &mut HashMap<String, ECS>) -> Result<(), String> {
+//
+//}
