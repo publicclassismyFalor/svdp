@@ -2,9 +2,14 @@ extern crate serde_json;
 
 use serde_json::Value;
 
+use std::str;
 use std::process::Command;
 use std::collections::HashMap;
-use std::str;
+
+use std::thread;
+use std::sync::{Mutex, Arc};
+
+use std::io::{Error, ErrorKind};
 
 const CMD: &str = "/tmp/aliyun_cmdb";
 const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
@@ -126,8 +131,7 @@ fn main() {
 //    }
 }
 
-fn cmd_exec(mut extra: Vec<&str>) -> Result<Vec<u8>, String> {
-    let mut cmd = Command::new(CMD);
+fn cmd_exec(mut extra: Vec<&str>) -> Result<Vec<u8>, Error> {
     let mut argv = Vec::new();
 
     for x in ARGV.iter() {
@@ -136,15 +140,12 @@ fn cmd_exec(mut extra: Vec<&str>) -> Result<Vec<u8>, String> {
 
     argv.append(&mut extra);
 
-    for x in argv.iter() {
-        println!("{}", x);
-    }
+    let output = Command::new(CMD).args(argv).output() ?;
 
-    cmd.args(argv);
-
-    match cmd.output() {
-        Ok(o) => return Ok(o.stdout),
-        Err(e) => return Err(e.to_string()),
+    if output.status.success() {
+        return Ok(output.stdout);
+    } else {
+        return Err(Error::from_raw_os_error(output.status.code().unwrap_or(1)));
     }
 }
 
@@ -172,13 +173,17 @@ fn region_parse() -> Result<Vec<String>, String> {
                 if Value::Null == v["Regions"]["Region"][x] {
                     break;
                 } else {
-                    res.push(v["Regions"]["Region"][x]["RegionId"].to_string());
+                    /* map 方式解析出来的 json string 是带引号的，需要处理掉 */
+                    if let Value::String(ref s) = v["Regions"]["Region"][x]["RegionId"] {
+                        res.push(s.to_string());
+                    } else {
+                        return Err("json parse err".to_string());
+                    }
                 }
             }
-            println!("{:?}", res);
         },
         Err(e) => {
-            return Err(e);
+            return Err(e.to_string());
         }
     }
 
@@ -189,8 +194,9 @@ fn region_parse() -> Result<Vec<String>, String> {
  * return HashMap(contains meta info of all ecs+disk+netif)
  * @param start_time: unix time_stamp
  */
-fn meta_parse(region: String) -> Result<HashMap<String, ECS>, String> {
-    let holder: HashMap<String, ECS> = HashMap::new();
+fn meta_parse(region: String) -> Result<HashMap<String, ECS>, Error> {
+    let holder = HashMap::new();
+    let holder_arc = Arc::new(Mutex::new(&holder));
 
     let extra = vec![
         "-domain",
@@ -200,22 +206,48 @@ fn meta_parse(region: String) -> Result<HashMap<String, ECS>, String> {
         "-apiVersion",
         "2014-05-26",
         "-region",
-        &region[1..(region.len() - 1)],  /* map 方式解析出来的 json string 是带引号的 */
+        &region,
         "Action",
         "DescribeInstances",
         "PageSize",
         "100",
     ];
 
-    match cmd_exec(extra) {
-        Ok(o) => {
-            println!("{:?}", String::from_utf8_lossy(&o));
-        },
-        Err(e) => {
-            println!("{}", e);
-        }
+    let cmd_ret: Vec<u8> = cmd_exec(extra) ?;
+
+    let v: Value = serde_json::from_slice(&cmd_ret).unwrap_or(Value::Null);
+    if Value::Null == v {
+        return Err(Error::new(ErrorKind::Other, "E1!".to_string()));
     }
 
+    let mut total_pages: i32 = 0;
+    if let Value::String(ref total) = v["TotalCount"] {
+        total_pages = total.parse().unwrap_or(0);
+    } else {
+        return Err(Error::new(ErrorKind::Other, "E2!".to_string()));
+    }
+
+    //if 0 < total_pages {
+
+    //    for x in 2..total_pages {
+
+    //    }
+    //}
+
+    //for x in 0.. {
+    //    if Value::Null == v["Regions"]["Region"][x] {
+    //        break;
+    //    } else {
+    //        /* map 方式解析出来的 json string 是带引号的，需要处理掉 */
+    //        if let Value::String(ref s) = v["Regions"]["Region"][x]["RegionId"] {
+    //            res.push(s.to_string());
+    //        } else {
+    //            return Err("json parse err".to_string());
+    //        }
+    //    }
+    //}
+
+    holder_arc.lock();
     Ok(holder)
 }
 
