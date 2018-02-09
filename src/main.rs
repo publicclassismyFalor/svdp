@@ -211,7 +211,7 @@ fn get_meta(region: String) {
         "-apiVersion".to_owned(),
         "2014-05-26".to_owned(),
         "-region".to_owned(),
-        region.clone(),  // tmp ...
+        region,
         "Action".to_owned(),
         "DescribeInstances".to_owned(),
         "PageSize".to_owned(),
