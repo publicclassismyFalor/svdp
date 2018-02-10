@@ -1,3 +1,5 @@
+extern crate serde_json;
+
 mod ecs;
 mod slb;
 mod rds;
