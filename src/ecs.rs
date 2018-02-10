@@ -590,7 +590,11 @@ fn get_meta <T: SvMeta> (mut holder: HashMap<String, Ecs>, region: String, t: T)
 
 fn get_data_worker <T> (mut holder: Arc<RwLock<HashMap<String, Ecs>>>, region: String, t: T)
     where T: 'static + std::marker::Send + SvData + Clone {
-    let worker = move |dimensions: String, t_: T| {
+
+    let dimensions = String::new();
+    let t_ = t.clone();
+
+    let worker = move || {
         let mut extra = t_.argv_new(&region, dimensions);
 
         let mut v: Value = Value::Null;;
@@ -629,13 +633,10 @@ fn get_data_worker <T> (mut holder: Arc<RwLock<HashMap<String, Ecs>>>, region: S
 
     let mut tids = vec![];
     loop {
-        let dimensions = String::new();
         // TODO 实例分段查询
  
-        let t1 = t.clone();
-        tids.push(thread::spawn(move || {
-            worker(dimensions, t1);
-        }));
+        let w = Box::new(worker);
+        tids.push(thread::spawn(||*w()));
     }
 
     for tid in tids.into_iter() {
