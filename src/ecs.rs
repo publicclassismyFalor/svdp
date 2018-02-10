@@ -13,31 +13,32 @@ use std::io::Error;
 struct Disk {
     device: String,  /* device name: /dev/vda */
 
-    total: u64,  /* M */
-    spent: u64,
+    disk_rate: i32,
+
     rd: u32,  /* kbytes */
     wr: u32,
     rdio: u32,  /* tps */
     wrio: u32,
 }
 
-//struct NetIf {
-//    device: String,  /* device name: eth0 */
-//
-//    rd: u32,  /* kbytes */
-//    wr: u32,
-//    rdio: u32,  /* tps */
-//    wrio: u32,
-//}
+struct NetIf {
+    device: String,  /* device name: eth0 */
+
+    rd: u32,  /* kbytes */
+    wr: u32,
+    rdio: u32,  /* tps */
+    wrio: u32,
+}
 
 struct Data {
-    cpu_rate: u16,
-    mem_rate: u16,
-    load: [u16;2],  /* load_5m/load_15m */
+    cpu_rate: i16,
+    mem_rate: i16,
+    load5m: u16,
+    load15m: u16,
     tcp_conn: u32,
 
     disk: HashMap<String, Disk>,  /* K: device */
-    //netif: HashMap<String, NetIf>,
+    netif: HashMap<String, NetIf>,
 }
 
 /* key: instance_id */
@@ -61,19 +62,18 @@ impl Ecs {
 enum DT {
     Base,
     Disk,
-    //NetIf,
+    NetIf,
 }
 
 trait SvMeta {
     fn argv_new(&self, region: String) -> Vec<String>;
-    fn meta_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>);
-    //fn data_insert(&self, holder: Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>);
+    fn insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>);
     fn reflect(&self) -> DT;
 }
 
 struct SvMetaBase();
 struct SvMetaDisk();
-//struct SvMetaNetIf();
+struct SvMetaNetIf();
 
 impl SvMeta for SvMetaBase {
     fn argv_new(&self, region: String) -> Vec<String> {
@@ -93,7 +93,7 @@ impl SvMeta for SvMetaBase {
         ]
     }
 
-    fn meta_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
+    fn insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
         let v: Value = ::serde_json::from_slice(&data).unwrap_or(Value::Null);
         if Value::Null == v {
             return;
@@ -134,7 +134,7 @@ impl SvMeta for SvMetaDisk {
         ]
     }
 
-    fn meta_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
+    fn insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
         let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
         if Value::Null == v {
             return;
@@ -172,6 +172,282 @@ impl SvMeta for SvMetaDisk {
         DT::Disk
     }
 }
+
+impl SvMeta for SvMetaNetIf {
+    fn argv_new(&self, region: String) -> Vec<String> {
+        vec![]
+    }
+
+    fn insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
+    }
+
+    fn reflect(&self) -> DT {
+        DT::NetIf
+    }
+}
+
+trait SvData {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String>;
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>);
+
+    fn argv_new_base(&self, region: String) -> Vec<String> {
+        vec![
+            "-region".to_owned(),
+            region,
+            "-domain".to_owned(),
+            "metrics.aliyuncs.com".to_owned(),
+            "-apiName".to_owned(),
+            "QueryMetricList".to_owned(),
+            "-apiVersion".to_owned(),
+            "2017-03-01".to_owned(),
+            "Action".to_owned(),
+            "QueryMetricList".to_owned(),
+            "Project".to_owned(),
+            "acs_ecs_dashboard".to_owned(),
+            "Length".to_owned(),
+            "1000".to_owned(),
+        ]
+    }
+}
+
+struct SvDataCpu();
+impl SvData for SvDataCpu {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("cpu_total".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataMem();
+impl SvData for SvDataMem {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("memory_usedutilization".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataDisk();
+impl SvData for SvDataDisk {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("diskusage_utilization".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataLoad5m();
+impl SvData for SvDataLoad5m {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("load_5m".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataLoad15m();
+impl SvData for SvDataLoad15m {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("load_15m".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataTcp();
+impl SvData for SvDataTcp {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("net_tcpconnection".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataDiskRd();
+impl SvData for SvDataDiskRd {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("disk_readbytes".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataDiskWr();
+impl SvData for SvDataDiskWr {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("disk_writebytes".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataDiskRdIo();
+impl SvData for SvDataDiskRdIo {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("disk_readiops".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataDiskWrIo();
+impl SvData for SvDataDiskWrIo {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("disk_writeiops".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataNetIfRd();
+impl SvData for SvDataNetIfRd {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("networkin_rate".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataNetIfWr();
+impl SvData for SvDataNetIfWr {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("networkout_rate".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataNetIfRdIo();
+impl SvData for SvDataNetIfRdIo {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("networkin_packages".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
+struct SvDataNetIfWrIo();
+impl SvData for SvDataNetIfWrIo {
+    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Metric".to_owned());
+        argv.push("networkout_packages".to_owned());
+        argv.push("Dimensions".to_owned());
+        argv.push(dimensions);
+
+        argv
+    }
+
+    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    }
+}
+
 
 fn cmd_exec(mut extra: Vec<String>) -> Result<Vec<u8>, Error> {
     let mut argv: Vec<String> = Vec::new();
@@ -233,8 +509,8 @@ fn get_region() -> Option<Vec<String>> {
  * return HashMap(contains meta info of all ecs+disk+netif)
  * @param start_time: unix time_stamp
  */
-fn get_meta <T: SvMeta> (mut holder: &mut HashMap<String, Ecs>, region: String, dt/*data type*/: T) {
-    let mut extra = dt.argv_new(region.clone());
+fn get_meta <T: SvMeta> (mut holder: &mut HashMap<String, Ecs>, region: String, t: T) {
+    let mut extra = t.argv_new(region.clone());
 
     if let Ok(ret) = cmd_exec(extra.clone()) {
         let v: Value = serde_json::from_slice(&ret).unwrap_or(Value::Null);
@@ -256,7 +532,7 @@ fn get_meta <T: SvMeta> (mut holder: &mut HashMap<String, Ecs>, region: String, 
             return;
         }
 
-        dt.meta_insert(&mut holder, ret);
+        t.insert(&mut holder, ret);
 
         if 1 < pages {
             extra.push("PageNumber".to_owned());
@@ -279,19 +555,23 @@ fn get_meta <T: SvMeta> (mut holder: &mut HashMap<String, Ecs>, region: String, 
             /* consume the origin tx and extra */
             worker(tx, 2, extra);
 
-            for i in rx {
-                dt.meta_insert(&mut holder, i);
+            for hunk in rx {
+                t.insert(&mut holder, hunk);
             }
         }
 
-        match dt.reflect() {
+        match t.reflect() {
             DT::Base => {
                 get_meta(&mut holder, region.clone(), SvMetaDisk());
-                //get_meta(&mut holder, region, SvMetaNetIf());
+                get_meta(&mut holder, region.clone(), SvMetaNetIf());
             },
             _ => {}
         }
     }
+}
+
+fn get_data <T: SvData> (holder: Arc<RwLock<HashMap<String, Ecs>>>, region: String, t: T) {
+
 }
 
 /********************

@@ -16,7 +16,7 @@ static mut TIMESTAMP: u64 = 0;
 
 pub fn run() {
     unsafe {
-        TIMESTAMP = 1000 * (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() - 15 * 60);
+        TIMESTAMP = 1000 * (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() - 5 * 60);
     }
 
     let mut tids = vec![];
