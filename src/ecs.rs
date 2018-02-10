@@ -22,14 +22,14 @@ struct Disk {
     wrio: u32,
 }
 
-struct NetIf {
-    device: String,  /* device name: eth0 */
-
-    rd: u32,  /* kbytes */
-    wr: u32,
-    rdio: u32,  /* tps */
-    wrio: u32,
-}
+//struct NetIf {
+//    device: String,  /* device name: eth0 */
+//
+//    rd: u32,  /* kbytes */
+//    wr: u32,
+//    rdio: u32,  /* tps */
+//    wrio: u32,
+//}
 
 struct Data {
     cpu_rate: u16,
@@ -37,8 +37,8 @@ struct Data {
     load: [u16;2],  /* load_5m/load_15m */
     tcp_conn: u32,
 
-    disk: Vec<Disk>,
-    netif: Vec<NetIf>,
+    disk: HashMap<String, Disk>,  /* K: device */
+    //netif: HashMap<String, NetIf>,
 }
 
 /* key: instance_id */
@@ -62,7 +62,7 @@ impl Ecs {
 enum DT {
     Base,
     Disk,
-    NetIf,
+    //NetIf,
 }
 
 trait Sv {
@@ -73,7 +73,7 @@ trait Sv {
 
 struct SvBase();
 struct SvDisk();
-struct SvNetIf();
+//struct SvNetIf();
 
 impl Sv for SvBase {
     fn argv_new(&self, region: String) -> Vec<String> {
