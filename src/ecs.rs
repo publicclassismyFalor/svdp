@@ -6,7 +6,7 @@ use std::process::Command;
 use std::collections::HashMap;
 
 use std::thread;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Mutex};
 //use std::time::Duration;
 
 use std::io::Error;
@@ -140,7 +140,7 @@ impl Sv for SvDisk {
             return;
         }
 
-        let body = &v["Disks"]["disk"];
+        let body = &v["Disks"]["Disk"];
         let mut diskid;
         let mut device;
         for i in 0.. {
@@ -261,11 +261,9 @@ fn get_meta <T: Sv> (mut holder: &mut HashMap<String, Ecs>, region: String, dt/*
         if 1 < pages {
             extra.push("PageNumber".to_owned());
 
-            let worker = |tx: mpsc::Sender<Vec<u8>>, page: u64| {
-                let mut extra_ = extra.clone();
+            let worker = |tx: mpsc::Sender<Vec<u8>>, page: u64, mut extra_: Vec<String>| {
                 thread::spawn(move || {
                     extra_.push(page.to_string());
-
                     if let Ok(ret) = cmd_exec(extra_) {
                         tx.send(ret).unwrap_or_else(|e| eprintln!("{}", e));
                     }
@@ -275,11 +273,11 @@ fn get_meta <T: Sv> (mut holder: &mut HashMap<String, Ecs>, region: String, dt/*
             let (tx, rx) = mpsc::channel();
 
             for i in 3..(pages + 1) {
-                worker(mpsc::Sender::clone(&tx), i);
+                worker(mpsc::Sender::clone(&tx), i, extra.clone());
             }
 
-            /* consume the origin tx */
-            worker(tx, 2);
+            /* consume the origin tx and extra */
+            worker(tx, 2, extra);
 
             for i in rx {
                 dt.parse_and_insert(&mut holder, i);
