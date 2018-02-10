@@ -1,4 +1,3 @@
-use ::std;
 use ::serde_json;
 
 use serde_json::Value;
@@ -43,16 +42,16 @@ struct Data {
 }
 
 /* key: instance_id */
-struct ECS {
+struct Ecs {
     data: HashMap<i32, Data>,  /* K: time_stamp, V: Data */
 
     disk: HashMap<String, String>,  /* K: device, V: device_id */
     netif: HashMap<String, String>,
 }
 
-impl ECS {
-    fn new() -> ECS {
-        ECS {
+impl Ecs {
+    fn new() -> Ecs {
+        Ecs {
             data: HashMap::new(),
             disk: HashMap::new(),
             netif: HashMap::new(),
@@ -60,69 +59,41 @@ impl ECS {
     }
 }
 
-/* DataType */
 enum DT {
-    Ecs,
+    Base,
     Disk,
     NetIf,
 }
 
-impl DT {
-    fn cmd_new(&self, region: String) -> Vec<String> {
-        match *self {
-            DT::Ecs => {
-                vec![
-                    "-region".to_owned(),
-                    region,
-                    "-domain".to_owned(),
-                    "ecs.aliyuncs.com".to_owned(),
-                    "-apiName".to_owned(),
-                    "DescribeInstances".to_owned(),
-                    "-apiVersion".to_owned(),
-                    "2014-05-26".to_owned(),
-                    "Action".to_owned(),
-                    "DescribeInstances".to_owned(),
-                    "PageSize".to_owned(),
-                    "100".to_owned(),
-                ]
-            },
-            DT::Disk => {
-                vec![
-                    "-region".to_owned(),
-                    region,
-                    "-domain".to_owned(),
-                    "ecs.aliyuncs.com".to_owned(),
-                    "-apiName".to_owned(),
-                    "DescribeDisks".to_owned(),
-                    "-apiVersion".to_owned(),
-                    "2014-05-26".to_owned(),
-                    "Action".to_owned(),
-                    "DescribeDisks".to_owned(),
-                    "PageSize".to_owned(),
-                    "100".to_owned(),
-                ]
-            },
-            DT::NetIf => {
-                vec![]
-            },
-        }
+trait Sv {
+    fn argv_new(&self, region: String) -> Vec<String>;
+    fn parse_and_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>);
+    fn reflect(&self) -> DT;
+}
+
+struct SvBase();
+struct SvDisk();
+struct SvNetIf();
+
+impl Sv for SvBase {
+    fn argv_new(&self, region: String) -> Vec<String> {
+        vec![
+            "-region".to_owned(),
+            region,
+            "-domain".to_owned(),
+            "ecs.aliyuncs.com".to_owned(),
+            "-apiName".to_owned(),
+            "DescribeInstances".to_owned(),
+            "-apiVersion".to_owned(),
+            "2014-05-26".to_owned(),
+            "Action".to_owned(),
+            "DescribeInstances".to_owned(),
+            "PageSize".to_owned(),
+            "100".to_owned(),
+        ]
     }
 
-    fn data_insert(&self, holder: &mut HashMap<String, ECS>, data: Vec<u8>) {
-        match *self {
-            DT::Ecs => {
-                DT::ecs_data_insert(holder, data);
-            },
-            DT::Disk => {
-                DT::disk_data_insert(holder, data);
-            },
-            DT::NetIf => {
-                DT::netif_data_insert(holder, data);
-            },
-        }
-    }
-
-    fn ecs_data_insert(holder: &mut HashMap<String, ECS>, data: Vec<u8>) {
+    fn parse_and_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
         let v: Value = ::serde_json::from_slice(&data).unwrap_or(Value::Null);
         if Value::Null == v {
             return;
@@ -134,13 +105,36 @@ impl DT {
                 break;
             } else {
                 if let Value::String(ref id) = body[i]["InstanceId"] {
-                    holder.insert((*id).clone(), ECS::new());
+                    holder.insert((*id).clone(), Ecs::new());
                 }
             }
         }
     }
 
-    fn disk_data_insert(holder: &mut HashMap<String, ECS>, data: Vec<u8>) {
+    fn reflect(&self) -> DT {
+        DT::Base
+    }
+}
+
+impl Sv for SvDisk {
+    fn argv_new(&self, region: String) -> Vec<String> {
+        vec![
+            "-region".to_owned(),
+            region,
+            "-domain".to_owned(),
+            "ecs.aliyuncs.com".to_owned(),
+            "-apiName".to_owned(),
+            "DescribeDisks".to_owned(),
+            "-apiVersion".to_owned(),
+            "2014-05-26".to_owned(),
+            "Action".to_owned(),
+            "DescribeDisks".to_owned(),
+            "PageSize".to_owned(),
+            "100".to_owned(),
+        ]
+    }
+
+    fn parse_and_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
         let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
         if Value::Null == v {
             return;
@@ -174,7 +168,8 @@ impl DT {
         }
     }
 
-    fn netif_data_insert(holder: &mut HashMap<String, ECS>, data: Vec<u8>) {
+    fn reflect(&self) -> DT {
+        DT::Disk
     }
 }
 
@@ -196,7 +191,7 @@ fn cmd_exec(mut extra: Vec<String>) -> Result<Vec<u8>, Error> {
     }
 }
 
-fn get_region() -> Result<Vec<String>, String> {
+fn get_region() -> Option<Vec<String>> {
     let mut res: Vec<String> = Vec::new();
     let extra = vec![
         "-domain".to_owned(),
@@ -209,235 +204,112 @@ fn get_region() -> Result<Vec<String>, String> {
         "DescribeRegions".to_owned(),
     ];
 
-    match cmd_exec(extra) {
-        Ok(o) => {
-            let v: Value = serde_json::from_slice(&o).unwrap_or(Value::Null);
-            if Value::Null == v {
-                return Err("E0!".to_string());
-            }
+    if let Ok(stdout) = cmd_exec(extra) {
+        let v: Value = serde_json::from_slice(&stdout).unwrap_or(Value::Null);
+        if Value::Null == v {
+            return None;
+        }
 
-            for x in 0.. {
-                if Value::Null == v["Regions"]["Region"][x] {
-                    break;
+        for x in 0.. {
+            if Value::Null == v["Regions"]["Region"][x] {
+                break;
+            } else {
+                /* map 方式解析出来的 json string 是带引号的，需要处理掉 */
+                if let Value::String(ref s) = v["Regions"]["Region"][x]["RegionId"] {
+                    res.push(s.to_string());
                 } else {
-                    /* map 方式解析出来的 json string 是带引号的，需要处理掉 */
-                    if let Value::String(ref s) = v["Regions"]["Region"][x]["RegionId"] {
-                        res.push(s.to_string());
-                    } else {
-                        return Err("json parse err".to_string());
-                    }
+                    return None;
                 }
             }
-        },
-        Err(e) => {
-            return Err(e.to_string());
         }
+    } else {
+        return None;
     }
 
-    Ok(res)
+    Some(res)
 }
 
 /*
  * return HashMap(contains meta info of all ecs+disk+netif)
  * @param start_time: unix time_stamp
  */
-fn get_meta(region: String) {
-    let mut holder = HashMap::new();
+fn get_meta <T: Sv> (mut holder: &mut HashMap<String, Ecs>, region: String, dt/*data type*/: T) {
+    let mut extra = dt.argv_new(region.clone());
 
-    let mut extra = vec![
-        "-domain".to_owned(),
-        "ecs.aliyuncs.com".to_owned(),
-        "-apiName".to_owned(),
-        "DescribeInstances".to_owned(),
-        "-apiVersion".to_owned(),
-        "2014-05-26".to_owned(),
-        "-region".to_owned(),
-        region,
-        "Action".to_owned(),
-        "DescribeInstances".to_owned(),
-        "PageSize".to_owned(),
-        "100".to_owned(),
-    ];
-
-    let ret: Vec<u8>;
-    if let Ok(cmd_ret) = cmd_exec(extra.clone()) {
-        ret = cmd_ret;
-    } else {
-        return;
-    }
-
-    let v: Value = serde_json::from_slice(&ret).unwrap_or(Value::Null);
-    if Value::Null == v {
-        return;
-    }
-
-    let mut total_pages: u64 = 0;
-    if let Value::Number(ref total) = v["TotalCount"] {
-        total_pages = total.as_u64().unwrap_or(0);
-        if 0 == total_pages {
+    if let Ok(ret) = cmd_exec(extra.clone()) {
+        let v: Value = serde_json::from_slice(&ret).unwrap_or(Value::Null);
+        if Value::Null == v {
             return;
-        } else if 0 == total_pages % 100 {
-            total_pages = total_pages / 100;
-        } else {
-            total_pages = 1 + total_pages / 100;
-        }
-    } else {
-        return;
-    }
-
-    meta_insert(&mut holder, ret);
-
-    if 1 < total_pages {
-        extra.push("PageNumber".to_owned());
-
-        let worker = |tx: mpsc::Sender<Vec<u8>>, page: u64| {
-            let mut extra_ = extra.clone();
-            thread::spawn(move || {
-                extra_.push(page.to_string());
-
-                if let Ok(ret) = cmd_exec(extra_) {
-                    tx.send(ret).unwrap_or_else(|e| eprintln!("{}", e));
-                }
-            });
-        };
-
-        let (tx, rx) = mpsc::channel();
-        for i in 3..(total_pages + 1) {
-            worker(mpsc::Sender::clone(&tx), i);
         }
 
-        worker(tx, 2);
-
-        for i in rx {
-            meta_insert(&mut holder, i);
-        }
-    }
-
-    get_meta_disk(&mut holder);
-    get_meta_netif(&mut holder);
-}
-
-fn get_meta_disk(holder: &mut HashMap<String, ECS>) {
-    //let mut extra = vec![
-    //    "-domain".to_owned(),
-    //    "ecs.aliyuncs.com".to_owned(),
-    //    "-apiName".to_owned(),
-    //    "DescribeDisks".to_owned(),
-    //    "-apiVersion".to_owned(),
-    //    "2014-05-26".to_owned(),
-    //    "-region".to_owned(),
-    //    "".to_owned(),
-    //    "Action".to_owned(),
-    //    "DescribeDisks".to_owned(),
-    //    "PageSize".to_owned(),
-    //    "100".to_owned(),
-    //];
-
-    //let ret: Vec<u8>;
-    //if let Ok(cmd_ret) = cmd_exec(extra.clone()) {
-    //    ret = cmd_ret;
-    //} else {
-    //    return;
-    //}
-
-    //let v: Value = serde_json::from_slice(&ret).unwrap_or(Value::Null);
-    //if Value::Null == v {
-    //    return;
-    //}
-
-    //let mut total_pages: u64 = 0;
-    //if let Value::Number(ref total) = v["TotalCount"] {
-    //    total_pages = total.as_u64().unwrap_or(0);
-    //    if 0 == total_pages {
-    //        return;
-    //    } else if 0 == total_pages % 100 {
-    //        total_pages = total_pages / 100;
-    //    } else {
-    //        total_pages = 1 + total_pages / 100;
-    //    }
-    //} else {
-    //    return;
-    //}
-
-    //meta_insert(&mut holder, ret);
-
-    //if 1 < total_pages {
-    //    extra.push("PageNumber".to_owned());
-
-    //    let worker = |tx: mpsc::Sender<Vec<u8>>, page: u64| {
-    //        let mut extra_ = extra.clone();
-    //        thread::spawn(move || {
-    //            extra_.push(page.to_string());
-
-    //            if let Ok(ret) = cmd_exec(extra_) {
-    //                tx.send(ret).unwrap_or_else(|e| eprintln!("{}", e));
-    //            }
-    //        });
-    //    };
-
-    //    let (tx, rx) = mpsc::channel();
-    //    for i in 3..(total_pages + 1) {
-    //        worker(mpsc::Sender::clone(&tx), i);
-    //    }
-
-    //    worker(tx, 2);
-
-    //    for i in rx {
-    //        meta_insert(&mut holder, i);
-    //    }
-    //}
-
-}
-
-fn get_meta_netif(holder: &mut HashMap<String, ECS>) {
-
-}
-
-fn meta_insert(holder: &mut HashMap<String, ECS>, data: Vec<u8>) {
-    let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
-    if Value::Null == v {
-        return;
-    }
-
-    for x in 0.. {
-        if Value::Null == v["Instances"]["Instance"][x] {
-            break;
-        } else {
-            /* map 方式解析出来的 json string 是带引号的，需要处理掉 */
-            if let Value::String(ref id) = v["Instances"]["Instance"][x]["InstanceId"] {
-                holder.insert((*id).clone(), ECS::new());
+        let mut pages: u64 = 0;
+        if let Value::Number(ref total) = v["TotalCount"] {
+            pages = total.as_u64().unwrap_or(0);
+            if 0 == pages {
+                return;
+            } else if 0 == pages % 100 {
+                pages = pages / 100;
             } else {
-                eprintln!("InstanceId: json parse err!");
+                pages = 1 + pages / 100;
+            }
+        } else {
+            return;
+        }
+
+        dt.parse_and_insert(&mut holder, ret);
+
+        if 1 < pages {
+            extra.push("PageNumber".to_owned());
+
+            let worker = |tx: mpsc::Sender<Vec<u8>>, page: u64| {
+                let mut extra_ = extra.clone();
+                thread::spawn(move || {
+                    extra_.push(page.to_string());
+
+                    if let Ok(ret) = cmd_exec(extra_) {
+                        tx.send(ret).unwrap_or_else(|e| eprintln!("{}", e));
+                    }
+                });
+            };
+
+            let (tx, rx) = mpsc::channel();
+
+            for i in 3..(pages + 1) {
+                worker(mpsc::Sender::clone(&tx), i);
+            }
+
+            /* consume the origin tx */
+            worker(tx, 2);
+
+            for i in rx {
+                dt.parse_and_insert(&mut holder, i);
             }
         }
+
+        match dt.reflect() {
+            DT::Base => {
+                get_meta(&mut holder, region.clone(), SvDisk());
+                //get_meta(&mut holder, region, SvNetIf());
+            },
+            _ => {}
+        }
     }
 }
 
-//fn meta_insert_disk(holder: &mut HashMap<String, ECS>) {
-//
-//}
-//
-//fn meta_insert_netif(holder: &mut HashMap<String, ECS>) {
-//
-//}
-
-
+/********************
+ * Public InterFace *
+ ********************/
 pub fn sv() {
-    let regions;
-    match get_region() {
-        Ok(res) => regions = res,
-        Err(e) => {
-            eprintln!("{}", e);
-            std::process::exit(1);
-        },
-    }
+    if let Some(regions) = get_region() {
+        let mut tids = vec![];
+        for region in regions.into_iter() {
+            tids.push(
+                thread::spawn(move || get_meta(&mut HashMap::new(), region, SvBase()))
+                );
+        }
 
-    let mut tids = Vec::new();
-    for region in regions.into_iter() {
-        tids.push(thread::spawn(move || get_meta(region)));
-    }
-
-    for tid in tids {
-        tid.join();
+        for tid in tids {
+            tid.join().unwrap();
+        }
     }
 }
