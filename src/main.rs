@@ -10,7 +10,7 @@ use std::thread;
 use std::sync::mpsc;
 //use std::time::Duration;
 
-use std::io::{Error, ErrorKind};
+use std::io::Error;
 
 const CMD: &str = "/tmp/aliyun_cmdb";
 const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
@@ -42,7 +42,7 @@ struct Data {
     tcp_conn: u32,
 
     disk: Vec<Disk>,
-    net_if: Vec<NetIf>,
+    netif: Vec<NetIf>,
 }
 
 /* key: instance_id */
@@ -50,7 +50,17 @@ struct ECS {
     data: HashMap<i32, Data>,  /* K: time_stamp, V: Data */
 
     disk: HashMap<String, String>,  /* K: device, V: device_id */
-    net_if: HashMap<String, String>,
+    netif: HashMap<String, String>,
+}
+
+impl ECS {
+    fn new() -> ECS {
+        ECS {
+            data: HashMap::new(),
+            disk: HashMap::new(),
+            netif: HashMap::new(),
+        }
+    }
 }
 
 fn main() {
@@ -234,6 +244,7 @@ fn get_meta(region: String) {
     if let Value::Number(ref total) = v["TotalCount"] {
         total_pages = total.as_u64().unwrap_or(0);
         if 0 == total_pages {
+            return;
         } else if 0 == total_pages % 100 {
             total_pages = total_pages / 100;
         } else {
@@ -243,26 +254,31 @@ fn get_meta(region: String) {
         return;
     }
 
-    let (tx, rx) = mpsc::channel();
+    meta_insert(&mut holder, ret);
 
-    if 0 < total_pages {
-        meta_insert(&mut holder, ret);
-
+    if 1 < total_pages {
         extra.push("PageNumber".to_owned());
-        for x in 2..(total_pages + 1) {
-            let mut extra_ = extra.clone();
-            let tx_ = mpsc::Sender::clone(&tx);
-            thread::spawn(move || {
-                extra_.push(x.to_string());
 
-                if let Ok(cmd_ret_) = cmd_exec(extra_) {
-                    tx_.send(cmd_ret_).unwrap_or_else(|e| eprintln!("mpsc send err: {}", e));
+        let worker = |tx: mpsc::Sender<Vec<u8>>, page: u64| {
+            let mut extra_ = extra.clone();
+            thread::spawn(move || {
+                extra_.push(page.to_string());
+
+                if let Ok(ret) = cmd_exec(extra_) {
+                    tx.send(ret).unwrap_or_else(|e| eprintln!("{}", e));
                 }
             });
+        };
+
+        let (tx, rx) = mpsc::channel();
+        for x in 3..(total_pages + 1) {
+            worker(mpsc::Sender::clone(&tx), x);
         }
 
-        for x in 2..(total_pages + 1) {
-            meta_insert(&mut holder, rx.recv().unwrap());
+        worker(tx, 2);
+
+        for z in rx {
+            meta_insert(&mut holder, z);
         }
     }
 
@@ -270,15 +286,15 @@ fn get_meta(region: String) {
     get_meta_netif(&mut holder);
 }
 
-fn get_meta_disk(holder: &mut HashMap<String, Option<ECS>>) {
+fn get_meta_disk(holder: &mut HashMap<String, ECS>) {
 
 }
 
-fn get_meta_netif(holder: &mut HashMap<String, Option<ECS>>) {
+fn get_meta_netif(holder: &mut HashMap<String, ECS>) {
 
 }
 
-fn meta_insert(holder: &mut HashMap<String, Option<ECS>>, data: Vec<u8>) {
+fn meta_insert(holder: &mut HashMap<String, ECS>, data: Vec<u8>) {
     let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
     if Value::Null == v {
         return;
@@ -290,7 +306,7 @@ fn meta_insert(holder: &mut HashMap<String, Option<ECS>>, data: Vec<u8>) {
         } else {
             /* map 方式解析出来的 json string 是带引号的，需要处理掉 */
             if let Value::String(ref id) = v["Instances"]["Instance"][x]["InstanceId"] {
-                holder.insert((*id).clone(), None);
+                holder.insert((*id).clone(), ECS::new());
             } else {
                 eprintln!("InstanceId: json parse err!");
             }
@@ -298,10 +314,10 @@ fn meta_insert(holder: &mut HashMap<String, Option<ECS>>, data: Vec<u8>) {
     }
 }
 
-//fn meta_insert_disk(holder: &mut HashMap<String, Option<ECS>>) {
+//fn meta_insert_disk(holder: &mut HashMap<String, ECS>) {
 //
 //}
 //
-//fn meta_insert_netif(holder: &mut HashMap<String, Option<ECS>>) {
+//fn meta_insert_netif(holder: &mut HashMap<String, ECS>) {
 //
 //}
