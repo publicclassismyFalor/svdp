@@ -5,7 +5,7 @@ use std::process::Command;
 use std::collections::HashMap;
 
 use std::thread;
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc, RwLock};
 //use std::time::Duration;
 
 use std::io::Error;
@@ -64,18 +64,18 @@ enum DT {
     //NetIf,
 }
 
-trait Sv {
+trait SvMeta {
     fn argv_new(&self, region: String) -> Vec<String>;
     fn meta_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>);
     //fn data_insert(&self, holder: Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>);
     fn reflect(&self) -> DT;
 }
 
-struct SvBase();
-struct SvDisk();
-//struct SvNetIf();
+struct SvMetaBase();
+struct SvMetaDisk();
+//struct SvMetaNetIf();
 
-impl Sv for SvBase {
+impl SvMeta for SvMetaBase {
     fn argv_new(&self, region: String) -> Vec<String> {
         vec![
             "-region".to_owned(),
@@ -116,7 +116,7 @@ impl Sv for SvBase {
     }
 }
 
-impl Sv for SvDisk {
+impl SvMeta for SvMetaDisk {
     fn argv_new(&self, region: String) -> Vec<String> {
         vec![
             "-region".to_owned(),
@@ -233,7 +233,7 @@ fn get_region() -> Option<Vec<String>> {
  * return HashMap(contains meta info of all ecs+disk+netif)
  * @param start_time: unix time_stamp
  */
-fn get_meta <T: Sv> (mut holder: &mut HashMap<String, Ecs>, region: String, dt/*data type*/: T) {
+fn get_meta <T: SvMeta> (mut holder: &mut HashMap<String, Ecs>, region: String, dt/*data type*/: T) {
     let mut extra = dt.argv_new(region.clone());
 
     if let Ok(ret) = cmd_exec(extra.clone()) {
@@ -286,8 +286,8 @@ fn get_meta <T: Sv> (mut holder: &mut HashMap<String, Ecs>, region: String, dt/*
 
         match dt.reflect() {
             DT::Base => {
-                get_meta(&mut holder, region.clone(), SvDisk());
-                //get_meta(&mut holder, region, SvNetIf());
+                get_meta(&mut holder, region.clone(), SvMetaDisk());
+                //get_meta(&mut holder, region, SvMetaNetIf());
             },
             _ => {}
         }
@@ -302,7 +302,7 @@ pub fn sv() {
         let mut tids = vec![];
         for region in regions.into_iter() {
             tids.push(
-                thread::spawn(move || get_meta(&mut HashMap::new(), region, SvBase()))
+                thread::spawn(move || get_meta(&mut HashMap::new(), region, SvMetaBase()))
                 );
         }
 
