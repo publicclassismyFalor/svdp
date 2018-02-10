@@ -1,3 +1,4 @@
+use ::std;
 use ::serde_json;
 use serde_json::Value;
 
@@ -187,7 +188,6 @@ impl SvMeta for SvMetaNetIf {
     }
 }
 
-
 trait SvData {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String>;
     fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>);
@@ -212,6 +212,7 @@ trait SvData {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataCpu();
 impl SvData for SvDataCpu {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -229,6 +230,7 @@ impl SvData for SvDataCpu {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataMem();
 impl SvData for SvDataMem {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -246,6 +248,7 @@ impl SvData for SvDataMem {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataDisk();
 impl SvData for SvDataDisk {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -263,6 +266,7 @@ impl SvData for SvDataDisk {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataLoad5m();
 impl SvData for SvDataLoad5m {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -280,6 +284,7 @@ impl SvData for SvDataLoad5m {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataLoad15m();
 impl SvData for SvDataLoad15m {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -297,6 +302,7 @@ impl SvData for SvDataLoad15m {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataTcp();
 impl SvData for SvDataTcp {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -314,6 +320,7 @@ impl SvData for SvDataTcp {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataDiskRd();
 impl SvData for SvDataDiskRd {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -331,6 +338,7 @@ impl SvData for SvDataDiskRd {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataDiskWr();
 impl SvData for SvDataDiskWr {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -348,6 +356,7 @@ impl SvData for SvDataDiskWr {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataDiskRdIo();
 impl SvData for SvDataDiskRdIo {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -365,6 +374,7 @@ impl SvData for SvDataDiskRdIo {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataDiskWrIo();
 impl SvData for SvDataDiskWrIo {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -382,6 +392,7 @@ impl SvData for SvDataDiskWrIo {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataNetIfRd();
 impl SvData for SvDataNetIfRd {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -399,6 +410,7 @@ impl SvData for SvDataNetIfRd {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataNetIfWr();
 impl SvData for SvDataNetIfWr {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -416,6 +428,7 @@ impl SvData for SvDataNetIfWr {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataNetIfRdIo();
 impl SvData for SvDataNetIfRdIo {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -433,6 +446,7 @@ impl SvData for SvDataNetIfRdIo {
     }
 }
 
+#[derive(Copy, Clone)]
 struct SvDataNetIfWrIo();
 impl SvData for SvDataNetIfWrIo {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
@@ -574,8 +588,59 @@ fn get_meta <T: SvMeta> (mut holder: HashMap<String, Ecs>, region: String, t: T)
     holder
 }
 
-fn get_data_worker <T: SvData> (holder: Arc<RwLock<HashMap<String, Ecs>>>, region: String, t: T) {
+fn get_data_worker <T> (mut holder: Arc<RwLock<HashMap<String, Ecs>>>, region: String, t: T)
+    where T: 'static + std::marker::Send + SvData + Clone {
+    let worker = move |dimensions: String, t_: T| {
+        let mut extra = t_.argv_new(&region, dimensions);
 
+        let mut v: Value = Value::Null;;
+        if let Ok(ret) = cmd_exec(extra.clone()) {
+            v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
+            if Value::Null == v {
+                return;
+            }
+
+            t_.insert(&mut holder, ret);
+        }
+
+        extra.push("Cursor".to_owned());
+        let mut v1: Value = Value::Null;;
+        loop {
+            if let Value::String(ref cursor) = v["Cursor"] {
+                extra.push((*cursor).clone());
+
+                if let Ok(ret) = cmd_exec(extra.clone()) {
+                    v1 = serde_json::from_slice(&ret).unwrap_or(Value::Null);
+                    if Value::Null == v {
+                        return;
+                    }
+
+                    t_.insert(&mut holder, ret);
+                }
+
+                extra.pop();
+            } else {
+                break;
+            }
+
+            v = v1.clone();
+        }
+    };
+
+    let mut tids = vec![];
+    loop {
+        let dimensions = String::new();
+        // TODO 实例分段查询
+ 
+        let t1 = t.clone();
+        tids.push(thread::spawn(move || {
+            worker(dimensions, t1);
+        }));
+    }
+
+    for tid in tids.into_iter() {
+        tid.join().unwrap();
+    }
 }
 
 fn get_data(holder: HashMap<String, Ecs>, region: String) {
@@ -660,14 +725,15 @@ fn get_data(holder: HashMap<String, Ecs>, region: String) {
             get_data_worker(h, r, SvDataNetIfRdIo());
         }));
 
-    let r = region.clone();
     tids.push(thread::spawn(move || {
-            get_data_worker(holder, r, SvDataNetIfWrIo());
+            get_data_worker(holder, region, SvDataNetIfWrIo());
         }));
 
     for tid in tids {
         tid.join().unwrap();
     }
+
+    // TODO 发送本次的结果至前端
 }
 
 /********************
