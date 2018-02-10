@@ -66,7 +66,7 @@ enum DT {
 }
 
 trait SvMeta {
-    fn argv_new(&self, region: String) -> Vec<String>;
+    fn argv_new(&self, region: &str) -> Vec<String>;
     fn insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>);
     fn reflect(&self) -> DT;
 }
@@ -76,10 +76,10 @@ struct SvMetaDisk();
 struct SvMetaNetIf();
 
 impl SvMeta for SvMetaBase {
-    fn argv_new(&self, region: String) -> Vec<String> {
+    fn argv_new(&self, region: &str) -> Vec<String> {
         vec![
             "-region".to_owned(),
-            region,
+            region.to_owned(),
             "-domain".to_owned(),
             "ecs.aliyuncs.com".to_owned(),
             "-apiName".to_owned(),
@@ -117,10 +117,10 @@ impl SvMeta for SvMetaBase {
 }
 
 impl SvMeta for SvMetaDisk {
-    fn argv_new(&self, region: String) -> Vec<String> {
+    fn argv_new(&self, region: &str) -> Vec<String> {
         vec![
             "-region".to_owned(),
-            region,
+            region.to_owned(),
             "-domain".to_owned(),
             "ecs.aliyuncs.com".to_owned(),
             "-apiName".to_owned(),
@@ -173,8 +173,9 @@ impl SvMeta for SvMetaDisk {
     }
 }
 
+// TODO
 impl SvMeta for SvMetaNetIf {
-    fn argv_new(&self, region: String) -> Vec<String> {
+    fn argv_new(&self, region: &str) -> Vec<String> {
         vec![]
     }
 
@@ -186,14 +187,15 @@ impl SvMeta for SvMetaNetIf {
     }
 }
 
-trait SvData {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String>;
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>);
 
-    fn argv_new_base(&self, region: String) -> Vec<String> {
+trait SvData {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String>;
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>);
+
+    fn argv_new_base(&self, region: &str) -> Vec<String> {
         vec![
             "-region".to_owned(),
-            region,
+            region.to_owned(),
             "-domain".to_owned(),
             "metrics.aliyuncs.com".to_owned(),
             "-apiName".to_owned(),
@@ -212,7 +214,7 @@ trait SvData {
 
 struct SvDataCpu();
 impl SvData for SvDataCpu {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -223,13 +225,13 @@ impl SvData for SvDataCpu {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataMem();
 impl SvData for SvDataMem {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -240,13 +242,13 @@ impl SvData for SvDataMem {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataDisk();
 impl SvData for SvDataDisk {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -257,13 +259,13 @@ impl SvData for SvDataDisk {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataLoad5m();
 impl SvData for SvDataLoad5m {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -274,13 +276,13 @@ impl SvData for SvDataLoad5m {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataLoad15m();
 impl SvData for SvDataLoad15m {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -291,13 +293,13 @@ impl SvData for SvDataLoad15m {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataTcp();
 impl SvData for SvDataTcp {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -308,13 +310,13 @@ impl SvData for SvDataTcp {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataDiskRd();
 impl SvData for SvDataDiskRd {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -325,13 +327,13 @@ impl SvData for SvDataDiskRd {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataDiskWr();
 impl SvData for SvDataDiskWr {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -342,13 +344,13 @@ impl SvData for SvDataDiskWr {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataDiskRdIo();
 impl SvData for SvDataDiskRdIo {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -359,13 +361,13 @@ impl SvData for SvDataDiskRdIo {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataDiskWrIo();
 impl SvData for SvDataDiskWrIo {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -376,13 +378,13 @@ impl SvData for SvDataDiskWrIo {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataNetIfRd();
 impl SvData for SvDataNetIfRd {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -393,13 +395,13 @@ impl SvData for SvDataNetIfRd {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataNetIfWr();
 impl SvData for SvDataNetIfWr {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -410,13 +412,13 @@ impl SvData for SvDataNetIfWr {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataNetIfRdIo();
 impl SvData for SvDataNetIfRdIo {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -427,13 +429,13 @@ impl SvData for SvDataNetIfRdIo {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
 struct SvDataNetIfWrIo();
 impl SvData for SvDataNetIfWrIo {
-    fn argv_new(&self, region: String, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
         argv.push("Metric".to_owned());
@@ -444,7 +446,7 @@ impl SvData for SvDataNetIfWrIo {
         argv
     }
 
-    fn insert(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
 
@@ -509,27 +511,27 @@ fn get_region() -> Option<Vec<String>> {
  * return HashMap(contains meta info of all ecs+disk+netif)
  * @param start_time: unix time_stamp
  */
-fn get_meta <T: SvMeta> (mut holder: &mut HashMap<String, Ecs>, region: String, t: T) {
-    let mut extra = t.argv_new(region.clone());
+fn get_meta <T: SvMeta> (mut holder: HashMap<String, Ecs>, region: String, t: T) -> HashMap<String, Ecs> {
+    let mut extra = t.argv_new(&region);
 
     if let Ok(ret) = cmd_exec(extra.clone()) {
         let v: Value = serde_json::from_slice(&ret).unwrap_or(Value::Null);
         if Value::Null == v {
-            return;
+            return holder;
         }
 
         let mut pages;
         if let Value::Number(ref total) = v["TotalCount"] {
             pages = total.as_u64().unwrap_or(0);
             if 0 == pages {
-                return;
+                return holder;
             } else if 0 == pages % 100 {
                 pages = pages / 100;
             } else {
                 pages = 1 + pages / 100;
             }
         } else {
-            return;
+            return holder;
         }
 
         t.insert(&mut holder, ret);
@@ -562,16 +564,110 @@ fn get_meta <T: SvMeta> (mut holder: &mut HashMap<String, Ecs>, region: String, 
 
         match t.reflect() {
             DT::Base => {
-                get_meta(&mut holder, region.clone(), SvMetaDisk());
-                get_meta(&mut holder, region.clone(), SvMetaNetIf());
+                holder = get_meta(holder, region.clone(), SvMetaDisk());
+                holder = get_meta(holder, region, SvMetaNetIf());
             },
             _ => {}
         }
     }
+
+    holder
 }
 
-fn get_data <T: SvData> (holder: Arc<RwLock<HashMap<String, Ecs>>>, region: String, t: T) {
+fn get_data_worker <T: SvData> (holder: Arc<RwLock<HashMap<String, Ecs>>>, region: String, t: T) {
 
+}
+
+fn get_data(holder: HashMap<String, Ecs>, region: String) {
+    let mut tids = vec![];
+    let holder = Arc::new(RwLock::new(holder));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataCpu());
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataMem());
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataDisk());
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataLoad5m());
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataLoad15m());
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataTcp());
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataDiskRd());
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataDiskWr());
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataDiskRdIo());
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataDiskWrIo());
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataNetIfRd());
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataNetIfWr());
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(h, r, SvDataNetIfRdIo());
+        }));
+
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            get_data_worker(holder, r, SvDataNetIfWrIo());
+        }));
+
+    for tid in tids {
+        tid.join().unwrap();
+    }
 }
 
 /********************
@@ -581,9 +677,9 @@ pub fn sv() {
     if let Some(regions) = get_region() {
         let mut tids = vec![];
         for region in regions.into_iter() {
-            tids.push(
-                thread::spawn(move || get_meta(&mut HashMap::new(), region, SvMetaBase()))
-                );
+            tids.push(thread::spawn(move || {
+                    get_data(get_meta(HashMap::new(), region.clone(), SvMetaBase()), region);
+                }));
         }
 
         for tid in tids {
