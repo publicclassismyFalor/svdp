@@ -12,7 +12,13 @@ use std::thread;
 const CMD: &str = "/tmp/aliyun_cmdb";
 const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
 
+static mut TIMESTAMP: u64 = 0;
+
 pub fn run() {
+    unsafe {
+        TIMESTAMP = 1000 * (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() - 15 * 60);
+    }
+
     let mut tids = vec![];
 
     tids.push(thread::spawn(|| ecs::sv()));

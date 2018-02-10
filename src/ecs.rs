@@ -1,5 +1,4 @@
 use ::serde_json;
-
 use serde_json::Value;
 
 use std::process::Command;
@@ -67,7 +66,8 @@ enum DT {
 
 trait Sv {
     fn argv_new(&self, region: String) -> Vec<String>;
-    fn parse_and_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>);
+    fn meta_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>);
+    //fn data_insert(&self, holder: Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>);
     fn reflect(&self) -> DT;
 }
 
@@ -93,7 +93,7 @@ impl Sv for SvBase {
         ]
     }
 
-    fn parse_and_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
+    fn meta_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
         let v: Value = ::serde_json::from_slice(&data).unwrap_or(Value::Null);
         if Value::Null == v {
             return;
@@ -134,7 +134,7 @@ impl Sv for SvDisk {
         ]
     }
 
-    fn parse_and_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
+    fn meta_insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
         let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
         if Value::Null == v {
             return;
@@ -242,7 +242,7 @@ fn get_meta <T: Sv> (mut holder: &mut HashMap<String, Ecs>, region: String, dt/*
             return;
         }
 
-        let mut pages: u64 = 0;
+        let mut pages;
         if let Value::Number(ref total) = v["TotalCount"] {
             pages = total.as_u64().unwrap_or(0);
             if 0 == pages {
@@ -256,7 +256,7 @@ fn get_meta <T: Sv> (mut holder: &mut HashMap<String, Ecs>, region: String, dt/*
             return;
         }
 
-        dt.parse_and_insert(&mut holder, ret);
+        dt.meta_insert(&mut holder, ret);
 
         if 1 < pages {
             extra.push("PageNumber".to_owned());
@@ -280,7 +280,7 @@ fn get_meta <T: Sv> (mut holder: &mut HashMap<String, Ecs>, region: String, dt/*
             worker(tx, 2, extra);
 
             for i in rx {
-                dt.parse_and_insert(&mut holder, i);
+                dt.meta_insert(&mut holder, i);
             }
         }
 
