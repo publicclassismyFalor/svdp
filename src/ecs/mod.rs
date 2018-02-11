@@ -46,22 +46,65 @@ struct Inner {
 struct Meta();
 
 trait META {
-    fn argv_new(&self, region: &str) -> Vec<String>;
+    fn argv_new(&self, region: String) -> Vec<String>;
     fn insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>);
     fn reflect(&self) -> DT;
 }
 
 trait DATA {
     fn get(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, region: String) {
+        let mut extra = self.argv_new(region);
+
+        let (tx, rx) = mpsc::channel();
+
+        thread::spawn(move || {
+            let mut v: Value = Value::Null;;
+            if let Ok(ret) = cmd_exec(extra.clone()) {
+                v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
+                if Value::Null == v {
+                    return;
+                }
+
+                tx.send(ret).unwrap();
+            }
+
+            extra.push("Cursor".to_owned());
+
+            let mut v1: Value = Value::Null;;
+            loop {
+                if let Value::String(ref cursor) = v["Cursor"] {
+                    extra.push((*cursor).clone());
+
+                    if let Ok(ret) = cmd_exec(extra.clone()) {
+                        v1 = serde_json::from_slice(&ret).unwrap_or(Value::Null);
+                        if Value::Null == v {
+                            return;
+                        }
+
+                        tx.send(ret).unwrap();
+                    }
+
+                    extra.pop();
+                } else {
+                    break;
+                }
+
+                v = v1.clone();
+            }
+        });
+
+        for r in rx {
+            self.insert(&holder, r);
+        }
     }
 
     fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>);
 
-    fn argv_new(&self, region: &str) -> Vec<String>;
-    fn argv_new_base(&self, region: &str) -> Vec<String> {
+    fn argv_new(&self, region: String) -> Vec<String>;
+    fn argv_new_base(&self, region: String) -> Vec<String> {
         vec![
             "-region".to_owned(),
-            region.to_owned(),
+            region,
             "-domain".to_owned(),
             "metrics.aliyuncs.com".to_owned(),
             "-apiName".to_owned(),
@@ -89,7 +132,7 @@ impl Ecs {
 }
 
 impl META for Meta {
-    fn argv_new(&self, region: &str) -> Vec<String> {
+    fn argv_new(&self, region: String) -> Vec<String> {
         vec![
             "-region".to_owned(),
             region.to_owned(),
@@ -190,7 +233,7 @@ fn get_region() -> Option<Vec<String>> {
  * @param start_time: unix time_stamp
  */
 fn get_meta <T: META> (mut holder: HashMap<String, Ecs>, region: String, t: T) -> HashMap<String, Ecs> {
-    let mut extra = t.argv_new(&region);
+    let mut extra = t.argv_new(region.clone());
 
     if let Ok(ret) = cmd_exec(extra.clone()) {
         let v: Value = serde_json::from_slice(&ret).unwrap_or(Value::Null);
@@ -250,62 +293,6 @@ fn get_meta <T: META> (mut holder: HashMap<String, Ecs>, region: String, t: T) -
 
     holder
 }
-
-//fn get_data_worker <T> (mut holder: Arc<RwLock<HashMap<String, Ecs>>>, region: String, t: T)
-//    where T: 'static + std::marker::Send + DATA {
-//
-//    let dimensions = String::new();
-//    let t_ = t.clone();
-//
-//    let worker = move || {
-//        let mut extra = t_.argv_new(&region, dimensions);
-//
-//        let mut v: Value = Value::Null;;
-//        if let Ok(ret) = cmd_exec(extra.clone()) {
-//            v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
-//            if Value::Null == v {
-//                return;
-//            }
-//
-//            t_.insert(&mut holder, ret);
-//        }
-//
-//        extra.push("Cursor".to_owned());
-//        let mut v1: Value = Value::Null;;
-//        loop {
-//            if let Value::String(ref cursor) = v["Cursor"] {
-//                extra.push((*cursor).clone());
-//
-//                if let Ok(ret) = cmd_exec(extra.clone()) {
-//                    v1 = serde_json::from_slice(&ret).unwrap_or(Value::Null);
-//                    if Value::Null == v {
-//                        return;
-//                    }
-//
-//                    t_.insert(&mut holder, ret);
-//                }
-//
-//                extra.pop();
-//            } else {
-//                break;
-//            }
-//
-//            v = v1.clone();
-//        }
-//    };
-//
-//    let mut tids = vec![];
-//    loop {
-//        // TODO 实例分段查询
-// 
-//        let w = Box::new(worker);
-//        tids.push(thread::spawn(||*w()));
-//    }
-//
-//    for tid in tids.into_iter() {
-//        tid.join().unwrap();
-//    }
-//}
 
 fn get_data(holder: HashMap<String, Ecs>, region: String) {
     let mut tids = vec![];
