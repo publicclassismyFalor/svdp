@@ -19,7 +19,7 @@ pub const INTERVAL: u64 = 5 * 60 * 1000;
 pub fn run() {
     let ts_now = || -> u64 {1000 * std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()};
 
-    unsafe { BASESTAMP = ts_now() - INTERVAL; }
+    unsafe { BASESTAMP = ts_now() / 15000 * 15000 - INTERVAL; }
 
     let mut basestamp;
     loop {
