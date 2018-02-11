@@ -12,12 +12,24 @@ pub mod rd_tps;
 pub mod wr_tps;
 
 pub struct Disk {
-    disk_rate: i32,
+    rate: i8,  /* usage percent */
 
-    rd: u32,  /* kbytes */
-    wr: u32,
-    rdio: u32,  /* tps */
-    wrio: u32,
+    rd: i32,  /* kbytes */
+    wr: i32,
+    rdtps: i32,
+    wrtps: i32,
+}
+
+impl Disk {
+    fn new() -> Disk {
+        Disk {
+            rate: 0,
+            rd: 0,
+            wr: 0,
+            rdtps: 0,
+            wrtps: 0,
+        }
+    }
 }
 
 pub struct Meta();
@@ -99,5 +111,47 @@ impl DATA for Data {
     }
 
     fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>) {
+        let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
+        if Value::Null == v {
+            return;
+        }
+
+        let body = &v["Datapoints"];
+        for i in 0.. {
+            if Value::Null == body[i] {
+                break;
+            } else {
+                let mut ecsid;
+                let mut ts;
+                let mut dev;
+
+                if let Value::String(ref id) = body[i]["instanceId"] {
+                    ecsid = id;
+                } else { continue; }
+
+                if let Value::Number(ref t) = body[i]["timestamp"] {
+                    if let Some(t) = t.as_u64() {
+                        ts = t;
+                    } else { continue; }
+                } else { continue; }
+
+                if let Value::String(ref d) = body[i]["device"] {
+                    dev = d;
+                } else { continue; }
+
+                if let Some(ecs) = holder.lock().unwrap().get_mut(ecsid) {
+                    /* align with 15s */
+                    if let Some(inner) = ecs.data.get_mut(&(ts / 15000 * 15000)) {
+                        if let Value::Number(ref v) = body[i]["Average"] {
+                            if let Some(v) = v.as_u64() {
+                                inner.disk  /* 仅此一行不同，待泛化 */
+                                    .entry(dev.to_owned()).or_insert(Disk::new())
+                                    .rate = v as i8;
+                            } else { continue; }
+                        } else { continue; }
+                    } else { continue; }
+                }
+            }
+        }
     }
 }
