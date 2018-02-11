@@ -6,13 +6,19 @@ use super::super::{DATA, Ecs};
 pub struct Data();
 
 impl DATA for Data {
-    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
+    fn argv_new(&self, region: &str) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
-
-        argv.push("Metric".to_owned());
         argv.push("networkin_packages".to_owned());
-        argv.push("Dimensions".to_owned());
-        argv.push(dimensions);
+
+        argv.push("StartTime".to_owned());
+        unsafe {
+            argv.push(::BASESTAMP.to_string());
+        }
+
+        argv.push("EndTime".to_owned());
+        unsafe {
+            argv.push((::BASESTAMP + ::INTERVAL - 1).to_string());
+        }
 
         argv
     }

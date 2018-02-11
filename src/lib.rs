@@ -9,14 +9,15 @@ mod mongodb;
 
 use std::thread;
 
-const CMD: &str = "/tmp/aliyun_cmdb";
-const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
+pub const CMD: &str = "/tmp/aliyun_cmdb";
+pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
 
-static mut TIMESTAMP: u64 = 0;
+pub static mut BASESTAMP: u64 = 0;
+pub const INTERVAL: u64 = 5 * 60 * 1000;
 
 pub fn run() {
     unsafe {
-        TIMESTAMP = 1000 * (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() - 5 * 60);
+        BASESTAMP = 1000 * (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() - 5 * 60);
     }
 
     let mut tids = vec![];

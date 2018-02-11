@@ -30,7 +30,7 @@ struct Ecs {
     data: HashMap<i32, Inner>,  /* K: time_stamp, V: Data */
 
     disk: HashMap<String, String>,  /* K: device, V: device_id */
-    netif: HashMap<String, String>,
+    netif: HashMap<String, String>,  /* K: device, V: IPaddr */
 }
 
 struct Inner {
@@ -44,15 +44,7 @@ struct Inner {
     netif: HashMap<String, netif::NetIf>,
 }
 
-impl Ecs {
-    fn new() -> Ecs {
-        Ecs {
-            data: HashMap::new(),
-            disk: HashMap::new(),
-            netif: HashMap::new(),
-        }
-    }
-}
+struct Meta();
 
 trait META {
     fn argv_new(&self, region: &str) -> Vec<String>;
@@ -61,7 +53,7 @@ trait META {
 }
 
 trait DATA {
-    fn argv_new(&self, region: &str, dimensions: String) -> Vec<String>;
+    fn argv_new(&self, region: &str) -> Vec<String>;
     fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>);
 
     fn argv_new_base(&self, region: &str) -> Vec<String> {
@@ -80,11 +72,20 @@ trait DATA {
             "acs_ecs_dashboard".to_owned(),
             "Length".to_owned(),
             "1000".to_owned(),
+            "Metric".to_owned(),
         ]
     }
 }
 
-struct Meta();
+impl Ecs {
+    fn new() -> Ecs {
+        Ecs {
+            data: HashMap::new(),
+            disk: HashMap::new(),
+            netif: HashMap::new(),
+        }
+    }
+}
 
 impl META for Meta {
     fn argv_new(&self, region: &str) -> Vec<String> {
