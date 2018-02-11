@@ -7,7 +7,6 @@ mod tcp;
 mod disk;
 mod netif;
 
-use ::std;
 use ::serde_json;
 use serde_json::Value;
 
@@ -58,42 +57,39 @@ trait DATA {
         let (tx, rx) = mpsc::channel();
 
         thread::spawn(move || {
-            let mut v: Value = Value::Null;;
             if let Ok(ret) = cmd_exec(extra.clone()) {
-                v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
+                let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
                 if Value::Null == v {
                     return;
                 }
 
                 tx.send(ret).unwrap();
-            }
 
-            extra.push("Cursor".to_owned());
-
-            let mut v1: Value = Value::Null;;
-            loop {
                 if let Value::String(ref cursor) = v["Cursor"] {
+                    extra.push("Cursor".to_owned());
                     extra.push((*cursor).clone());
 
-                    if let Ok(ret) = cmd_exec(extra.clone()) {
-                        v1 = serde_json::from_slice(&ret).unwrap_or(Value::Null);
+                    while let Ok(ret) = cmd_exec(extra.clone()) {
+                        let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
                         if Value::Null == v {
                             return;
                         }
 
                         tx.send(ret).unwrap();
+
+                        if let Value::String(ref cursor) = v["Cursor"] {
+                            extra.pop();
+                            extra.push((*cursor).clone());
+                        } else {
+                            break;
+                        }
                     }
-
-                    extra.pop();
-                } else {
-                    break;
                 }
-
-                v = v1.clone();
             }
         });
 
         for r in rx {
+            println!("{}", String::from_utf8_lossy(&r));
             self.insert(&holder, r);
         }
     }

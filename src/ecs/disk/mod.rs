@@ -92,7 +92,7 @@ impl DATA for Data {
 
         argv.push("EndTime".to_owned());
         unsafe {
-            argv.push((::BASESTAMP + ::INTERVAL - 1).to_string());
+            argv.push((::BASESTAMP + ::INTERVAL).to_string());
         }
 
         argv
