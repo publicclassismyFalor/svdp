@@ -126,7 +126,7 @@ impl Ecs {
         };
 
         let ts;
-        unsafe { ts = ::BASESTAMP / 1000; }
+        unsafe { ts = ::BASESTAMP; }
         for i in 0..(::INTERVAL / 15 / 1000) {
             res.data.insert(ts + i * 1000, Inner::new());
         }
@@ -392,12 +392,32 @@ fn get_data(holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String) {
             netif::rd_tps::Data().get(h, r);
         }));
 
+    let h = Arc::clone(&holder);
     tids.push(thread::spawn(move || {
-            netif::wr_tps::Data().get(holder, region);
+            netif::wr_tps::Data().get(h, region);
         }));
 
     for tid in tids {
         tid.join().unwrap();
+    }
+
+    // TEST
+    for (k, v) in holder.lock().unwrap().iter() {
+        println!("ecsid: {}", k);
+
+        for (k1, v1) in &v.disk {
+            println!("----diskname: {}, diskid: {}", k1, v1);
+        }
+
+        for k2 in v.data.keys() {
+            println!("++++timestamp: {}, cpu: {}, mem: {}, load: {} {}, tcp: {}",
+                     k2,
+                     v.data.get(k2).unwrap().cpu_rate,
+                     v.data.get(k2).unwrap().mem_rate,
+                     v.data.get(k2).unwrap().load5m,
+                     v.data.get(k2).unwrap().load15m,
+                     v.data.get(k2).unwrap().tcp);
+        }
     }
 
     // TODO 发送本次的结果至前端
