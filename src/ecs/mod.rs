@@ -111,6 +111,8 @@ trait DATA {
             "QueryMetricList".to_owned(),
             "Project".to_owned(),
             "acs_ecs_dashboard".to_owned(),
+            "Period".to_owned(),
+            "15".to_owned(),
             "Length".to_owned(),
             "1000".to_owned(),
             "Metric".to_owned(),
@@ -400,6 +402,11 @@ pub fn sv() {
             tid.join().unwrap();
         }
 
+        /*
+         * Aliyun BUG ?
+         * 不传 Dimensions，则 region 字段不起过滤作用，
+         * 任一有效值皆会返回所有区域的数据
+         */
         get_data(holder, "cn-beijing".to_owned());
     }
 }

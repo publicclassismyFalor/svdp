@@ -25,7 +25,7 @@ pub fn run() {
     loop {
         unsafe { basestamp = BASESTAMP; }
 
-        while ts_now() > (basestamp + INTERVAL) {
+        while ts_now() >= (basestamp + INTERVAL) {
             let mut tids = vec![];
 
             tids.push(thread::spawn(|| ecs::sv()));
