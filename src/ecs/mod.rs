@@ -14,7 +14,7 @@ use std::process::Command;
 use std::collections::HashMap;
 
 use std::thread;
-use std::sync::{mpsc, Arc, RwLock};
+use std::sync::{mpsc, Arc, Mutex};
 
 use std::io::Error;
 
@@ -46,12 +46,12 @@ struct Meta();
 
 trait META {
     fn argv_new(&self, region: String) -> Vec<String>;
-    fn insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>);
+    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>);
     fn reflect(&self) -> DT;
 }
 
 trait DATA {
-    fn get(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, region: String) {
+    fn get(&self, holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String) {
         let mut extra = self.argv_new(region);
 
         let (tx, rx) = mpsc::channel();
@@ -94,7 +94,7 @@ trait DATA {
         }
     }
 
-    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>);
+    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>);
 
     fn argv_new(&self, region: String) -> Vec<String>;
     fn argv_new_base(&self, region: String) -> Vec<String> {
@@ -145,7 +145,7 @@ impl META for Meta {
         ]
     }
 
-    fn insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>) {
         let v: Value = ::serde_json::from_slice(&data).unwrap_or(Value::Null);
         if Value::Null == v {
             return;
@@ -157,7 +157,7 @@ impl META for Meta {
                 break;
             } else {
                 if let Value::String(ref id) = body[i]["InstanceId"] {
-                    holder.insert((*id).clone(), Ecs::new());
+                    holder.lock().unwrap().insert((*id).clone(), Ecs::new());
                 }
             }
         }
@@ -228,30 +228,30 @@ fn get_region() -> Option<Vec<String>> {
  * return HashMap(contains meta info of all ecs+disk+netif)
  * @param start_time: unix time_stamp
  */
-fn get_meta <T: META> (mut holder: HashMap<String, Ecs>, region: String, t: T) -> HashMap<String, Ecs> {
+fn get_meta <T: META> (holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String, t: T) {
     let mut extra = t.argv_new(region.clone());
 
     if let Ok(ret) = cmd_exec(extra.clone()) {
         let v: Value = serde_json::from_slice(&ret).unwrap_or(Value::Null);
         if Value::Null == v {
-            return holder;
+            return;
         }
 
         let mut pages;
         if let Value::Number(ref total) = v["TotalCount"] {
             pages = total.as_u64().unwrap_or(0);
             if 0 == pages {
-                return holder;
+                return;
             } else if 0 == pages % 100 {
                 pages = pages / 100;
             } else {
                 pages = 1 + pages / 100;
             }
         } else {
-            return holder;
+            return;
         }
 
-        t.insert(&mut holder, ret);
+        t.insert(&holder, ret);
 
         if 1 < pages {
             extra.push("PageNumber".to_owned());
@@ -275,24 +275,22 @@ fn get_meta <T: META> (mut holder: HashMap<String, Ecs>, region: String, t: T) -
             worker(tx, 2, extra);
 
             for hunk in rx {
-                t.insert(&mut holder, hunk);
+                t.insert(&holder, hunk);
             }
         }
 
         match t.reflect() {
             DT::Ecs=> {
-                holder = get_meta(holder, region, disk::Meta());
+                let h = Arc::clone(&holder);
+                get_meta(h, region, disk::Meta());
             },
             _ => {}
         }
     }
-
-    holder
 }
 
-fn get_data(holder: HashMap<String, Ecs>, region: String) {
+fn get_data(holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String) {
     let mut tids = vec![];
-    let holder = Arc::new(RwLock::new(holder));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
@@ -389,14 +387,19 @@ fn get_data(holder: HashMap<String, Ecs>, region: String) {
 pub fn sv() {
     if let Some(regions) = get_region() {
         let mut tids = vec![];
+        let holder = Arc::new(Mutex::new(HashMap::new()));
+
         for region in regions.into_iter() {
+            let h = Arc::clone(&holder);
             tids.push(thread::spawn(move || {
-                    get_data(get_meta(HashMap::new(), region.clone(), Meta()), region);
-                }));
+                get_meta(h, region, Meta());
+            }));
         }
 
         for tid in tids {
             tid.join().unwrap();
         }
+
+        get_data(holder, "cn-beijing".to_owned());
     }
 }

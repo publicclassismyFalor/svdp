@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
 use ::serde_json;
@@ -41,7 +41,7 @@ impl META for Meta {
         ]
     }
 
-    fn insert(&self, holder: &mut HashMap<String, Ecs>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>) {
         let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
         if Value::Null == v {
             return;
@@ -55,7 +55,7 @@ impl META for Meta {
                 break;
             } else {
                 if let Value::String(ref ecsid) = body[i]["InstanceId"] {
-                    if let Some(ecs) = holder.get_mut(ecsid) {
+                    if let Some(ecs) = holder.lock().unwrap().get_mut(ecsid) {
                         if let Value::String(ref id) = body[i]["DiskId"] {
                             diskid= id;
                         } else {
@@ -98,6 +98,6 @@ impl DATA for Data {
         argv
     }
 
-    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }

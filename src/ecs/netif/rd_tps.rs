@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
 use super::super::{DATA, Ecs};
@@ -23,6 +23,6 @@ impl DATA for Data {
         argv
     }
 
-    fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>) {
     }
 }
