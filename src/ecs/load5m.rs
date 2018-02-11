@@ -6,7 +6,7 @@ use super::{DATA, Ecs};
 pub struct Data();
 
 impl DATA for Data {
-    fn argv_new(&self, region: &str) -> Vec<String> {
+    fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
         argv.push("load_5m".to_owned());
 

@@ -24,7 +24,7 @@ pub struct Meta();
 pub struct Data();  /* disk rate */
 
 impl META for Meta {
-    fn argv_new(&self, region: &str) -> Vec<String> {
+    fn argv_new(&self, region: String) -> Vec<String> {
         vec![
             "-region".to_owned(),
             region.to_owned(),
@@ -81,7 +81,7 @@ impl META for Meta {
 }
 
 impl DATA for Data {
-    fn argv_new(&self, region: &str) -> Vec<String> {
+    fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
         argv.push("diskusage_utilization".to_owned());
 
