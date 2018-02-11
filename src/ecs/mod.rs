@@ -21,7 +21,6 @@ use std::io::Error;
 enum DT {
     Ecs,
     Disk,
-    NetIf,
 }
 
 /* key: instance_id */
@@ -126,7 +125,7 @@ impl Ecs {
             disk: HashMap::new(),
         };
 
-        let mut ts;
+        let ts;
         unsafe { ts = ::BASESTAMP / 1000; }
         for i in 0..(::INTERVAL / 15 / 1000) {
             res.data.insert(ts + i * 1000, Inner::new());

@@ -4,8 +4,19 @@ pub mod rd_tps;
 pub mod wr_tps;
 
 pub struct NetIf {
-    rd: u32,  /* kbytes */
-    wr: u32,
-    rdio: u32,  /* tps */
-    wrio: u32,
+    rd: i32,  /* kbytes */
+    wr: i32,
+    rdtps: i32,
+    wrtps: i32,
+}
+
+impl NetIf {
+    fn new() -> NetIf {
+        NetIf {
+            rd: 0,
+            wr: 0,
+            rdtps: 0,
+            wrtps: 0,
+        }
+    }
 }
