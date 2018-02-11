@@ -34,8 +34,8 @@ struct Ecs {
 struct Inner {
     cpu_rate: i16,
     mem_rate: i16,
-    load5m: u16,
-    load15m: u16,
+    load5m: i32,
+    load15m: i32,
     tcp: i32,  /* tcp conn cnt */
 
     disk: HashMap<String, disk::Disk>,  /* K: device */
