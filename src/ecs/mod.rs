@@ -128,7 +128,7 @@ impl Ecs {
         let ts;
         unsafe { ts = ::BASESTAMP; }
         for i in 0..(::INTERVAL / 15 / 1000) {
-            res.data.insert(ts + i * 1000, Inner::new());
+            res.data.insert(ts + i * 15 * 1000, Inner::new());
         }
 
         res
