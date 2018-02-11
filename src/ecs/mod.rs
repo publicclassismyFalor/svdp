@@ -26,7 +26,7 @@ enum DT {
 }
 
 /* key: instance_id */
-pub struct Ecs {
+struct Ecs {
     data: HashMap<i32, Inner>,  /* K: time_stamp, V: Data */
 
     disk: HashMap<String, String>,  /* K: device, V: device_id */
@@ -38,7 +38,7 @@ struct Inner {
     mem_rate: i16,
     load5m: u16,
     load15m: u16,
-    tcp_conn: u32,
+    tcp: u32,  /* tcp conn cnt */
 
     disk: HashMap<String, disk::Disk>,  /* K: device */
     netif: HashMap<String, netif::NetIf>,

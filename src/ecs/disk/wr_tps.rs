@@ -5,7 +5,7 @@ use super::super::{DATA, Ecs};
 
 pub struct Data();
 
-impl super::super::DATA for Data {
+impl DATA for Data {
     fn argv_new(&self, region: &str, dimensions: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
 
