@@ -26,7 +26,7 @@ enum DT {
 
 /* key: instance_id */
 struct Ecs {
-    data: HashMap<i32, Inner>,  /* K: time_stamp, V: Supervisor Data */
+    data: HashMap<u64, Inner>,  /* K: time_stamp, V: Supervisor Data */
 
     disk: HashMap<String, String>,  /* K: Device, V: DiskId */
 }
@@ -89,7 +89,6 @@ trait DATA {
         });
 
         for r in rx {
-            println!("{}", String::from_utf8_lossy(&r));
             self.insert(&holder, r);
         }
     }
@@ -130,7 +129,7 @@ impl Ecs {
         let mut ts;
         unsafe { ts = ::BASESTAMP / 1000; }
         for i in 0..(::INTERVAL / 15 / 1000) {
-            res.data.insert((ts + i * 1000) as i32, Inner::new());
+            res.data.insert(ts + i * 1000, Inner::new());
         }
 
         res
@@ -171,7 +170,7 @@ impl META for Meta {
     }
 
     fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>) {
-        let v: Value = ::serde_json::from_slice(&data).unwrap_or(Value::Null);
+        let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
         if Value::Null == v {
             return;
         }
@@ -234,7 +233,6 @@ fn get_region() -> Option<Vec<String>> {
             if Value::Null == v["Regions"]["Region"][x] {
                 break;
             } else {
-                /* map 方式解析出来的 json string 是带引号的，需要处理掉 */
                 if let Value::String(ref s) = v["Regions"]["Region"][x]["RegionId"] {
                     res.push(s.to_string());
                 } else {
