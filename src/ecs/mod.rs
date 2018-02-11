@@ -27,10 +27,9 @@ enum DT {
 
 /* key: instance_id */
 struct Ecs {
-    data: HashMap<i32, Inner>,  /* K: time_stamp, V: Data */
+    data: HashMap<i32, Inner>,  /* K: time_stamp, V: Supervisor Data */
 
-    disk: HashMap<String, String>,  /* K: device, V: device_id */
-    netif: HashMap<String, String>,  /* K: device, V: IPaddr */
+    disk: HashMap<String, String>,  /* K: Device, V: DiskId */
 }
 
 struct Inner {
@@ -41,7 +40,7 @@ struct Inner {
     tcp: u32,  /* tcp conn cnt */
 
     disk: HashMap<String, disk::Disk>,  /* K: device */
-    netif: HashMap<String, netif::NetIf>,
+    netif: HashMap<String, netif::NetIf>,  /* K: IP */
 }
 
 struct Meta();
@@ -53,9 +52,12 @@ trait META {
 }
 
 trait DATA {
-    fn argv_new(&self, region: &str) -> Vec<String>;
+    fn get(&self, holder: Arc<RwLock<HashMap<String, Ecs>>>, region: String) {
+    }
+
     fn insert(&self, holder: &Arc<RwLock<HashMap<String, Ecs>>>, data: Vec<u8>);
 
+    fn argv_new(&self, region: &str) -> Vec<String>;
     fn argv_new_base(&self, region: &str) -> Vec<String> {
         vec![
             "-region".to_owned(),
@@ -82,7 +84,6 @@ impl Ecs {
         Ecs {
             data: HashMap::new(),
             disk: HashMap::new(),
-            netif: HashMap::new(),
         }
     }
 }
@@ -241,8 +242,7 @@ fn get_meta <T: META> (mut holder: HashMap<String, Ecs>, region: String, t: T) -
 
         match t.reflect() {
             DT::Ecs=> {
-                holder = get_meta(holder, region.clone(), disk::Meta());
-                holder = get_meta(holder, region, netif::Meta());
+                holder = get_meta(holder, region, disk::Meta());
             },
             _ => {}
         }
@@ -251,8 +251,8 @@ fn get_meta <T: META> (mut holder: HashMap<String, Ecs>, region: String, t: T) -
     holder
 }
 
-fn get_data_worker <T> (mut holder: Arc<RwLock<HashMap<String, Ecs>>>, region: String, t: T)
-    where T: 'static + std::marker::Send + DATA {
+//fn get_data_worker <T> (mut holder: Arc<RwLock<HashMap<String, Ecs>>>, region: String, t: T)
+//    where T: 'static + std::marker::Send + DATA {
 //
 //    let dimensions = String::new();
 //    let t_ = t.clone();
@@ -305,7 +305,7 @@ fn get_data_worker <T> (mut holder: Arc<RwLock<HashMap<String, Ecs>>>, region: S
 //    for tid in tids.into_iter() {
 //        tid.join().unwrap();
 //    }
-}
+//}
 
 fn get_data(holder: HashMap<String, Ecs>, region: String) {
     let mut tids = vec![];
@@ -313,84 +313,84 @@ fn get_data(holder: HashMap<String, Ecs>, region: String) {
 
     let h = Arc::clone(&holder);
     let r = region.clone();
-    tids.push(thread::spawn(move || {
-            get_data_worker(h, r, cpu::Data());
+    tids.push(thread::spawn(|| {
+            cpu::Data().get(h, r);
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(|| {
+            mem::Data().get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            get_data_worker(h, r, mem::Data());
+            disk::Data().get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            get_data_worker(h, r, disk::Data());
+            load5m::Data().get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            get_data_worker(h, r, load5m::Data());
+            load15m::Data().get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            get_data_worker(h, r, load15m::Data());
+            tcp::Data().get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            get_data_worker(h, r, tcp::Data());
+            disk::rd::Data().get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            get_data_worker(h, r, disk::rd::Data());
+            disk::wr::Data().get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            get_data_worker(h, r, disk::wr::Data());
+            disk::rd_tps::Data().get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            get_data_worker(h, r, disk::rd_tps::Data());
+            disk::wr_tps::Data().get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            get_data_worker(h, r, disk::wr_tps::Data());
+            netif::rd::Data().get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            get_data_worker(h, r, netif::rd::Data());
+            netif::wr::Data().get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            get_data_worker(h, r, netif::wr::Data());
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            get_data_worker(h, r, netif::rd_tps::Data());
+            netif::rd_tps::Data().get(h, r);
         }));
 
     tids.push(thread::spawn(move || {
-            get_data_worker(holder, region, netif::wr_tps::Data());
+            netif::wr_tps::Data().get(holder, region);
         }));
 
     for tid in tids {

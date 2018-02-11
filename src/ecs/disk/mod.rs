@@ -12,8 +12,6 @@ pub mod rd_tps;
 pub mod wr_tps;
 
 pub struct Disk {
-    device: String,  /* device name: /dev/vda */
-
     disk_rate: i32,
 
     rd: u32,  /* kbytes */
