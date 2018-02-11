@@ -127,8 +127,10 @@ impl Ecs {
 
         let ts;
         unsafe { ts = ::BASESTAMP; }
-        for i in 0..(::INTERVAL / 15 / 1000) {
-            res.data.insert(ts + i * 15 * 1000, Inner::new());
+
+        /* Aliyun TimeStamp: (StartTime, EndTime] */
+        for i in 1..(::INTERVAL / 15000 + 1) {
+            res.data.insert(ts + i * 15000, Inner::new());
         }
 
         res

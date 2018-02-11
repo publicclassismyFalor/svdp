@@ -24,7 +24,6 @@ pub fn run() {
     let mut basestamp;
     loop {
         unsafe { basestamp = BASESTAMP; }
-
         while ts_now() >= (basestamp + INTERVAL) {
             let mut tids = vec![];
 
@@ -40,9 +39,8 @@ pub fn run() {
             }
 
             basestamp += INTERVAL;
+            unsafe { BASESTAMP = basestamp; }
         }
-
-        unsafe { BASESTAMP = basestamp; }
 
         thread::sleep(Duration::from_secs(INTERVAL));
     }
