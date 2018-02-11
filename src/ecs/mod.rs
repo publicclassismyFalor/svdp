@@ -36,7 +36,7 @@ struct Inner {
     mem_rate: i16,
     load5m: u16,
     load15m: u16,
-    tcp: u32,  /* tcp conn cnt */
+    tcp: i32,  /* tcp conn cnt */
 
     disk: HashMap<String, disk::Disk>,  /* K: device */
     netif: HashMap<String, netif::NetIf>,  /* K: IP */
@@ -122,9 +122,32 @@ trait DATA {
 
 impl Ecs {
     fn new() -> Ecs {
-        Ecs {
+        let mut res = Ecs {
             data: HashMap::new(),
             disk: HashMap::new(),
+        };
+
+        let mut ts;
+        unsafe { ts = ::BASESTAMP / 1000; }
+        for i in 0..(::INTERVAL / 15 / 1000) {
+            res.data.insert((ts + i * 1000) as i32, Inner::new());
+        }
+
+        res
+    }
+}
+
+impl Inner {
+    fn new() -> Inner {
+        Inner {
+            cpu_rate: 0,
+            mem_rate: 0,
+            load5m: 0,
+            load15m: 0,
+            tcp: 0,
+
+            disk: HashMap::new(),
+            netif: HashMap::new(),
         }
     }
 }
