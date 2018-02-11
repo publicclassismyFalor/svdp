@@ -55,7 +55,7 @@ impl DATA for Data {
                     if let Some(inner) = ecs.data.get_mut(&(ts / 15000 * 15000)) {
                         if let Value::Number(ref v) = body[i]["Average"] {
                             if let Some(v) = v.as_f64() {
-                                inner.load5m = (v * 1000.0) as i16; // FIXME 仅此一行不同，待泛化
+                                inner.load5m = (v * 1000.0) as i32; // FIXME 仅此一行不同，待泛化
                             } else { continue; }
                         } else { continue; }
                     } else { continue; }
