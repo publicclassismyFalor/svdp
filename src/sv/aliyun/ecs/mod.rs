@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
 
-use super::{BASESTAMP, INTERVAL, cmd_exec};
+use super::{DATA, BASESTAMP, INTERVAL, cmd_exec};
 
 enum DT {
     Ecs,

@@ -11,7 +11,7 @@ impl DATA for Data {
     type Holder = Arc<Mutex<HashMap<String, Ecs>>>;
 
     fn argv_new(&self, region: String) -> Vec<String> {
-        let mut argv = self.argv_new_base(region);
+        let mut argv = base::argv_new(region);
         argv.push("load_15m".to_owned());
 
         argv.push("StartTime".to_owned());
@@ -25,6 +25,10 @@ impl DATA for Data {
         }
 
         argv
+    }
+
+    fn get(&self, holder: Self::Holder, region: String) {
+        base::get(holder, region, Data());
     }
 
     fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>) {

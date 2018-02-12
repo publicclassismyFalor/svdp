@@ -2,7 +2,8 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
 use super::NetIf;
-use super::super::{Ecs};
+use super::super::base;
+use super::super::Ecs;
 use super::super::super::{DATA, BASESTAMP, INTERVAL};
 
 pub struct Data();
@@ -11,7 +12,7 @@ impl DATA for Data {
     type Holder = Arc<Mutex<HashMap<String, Ecs>>>;
 
     fn argv_new(&self, region: String) -> Vec<String> {
-        let mut argv = self.argv_new_base(region);
+        let mut argv = base::argv_new(region);
         argv.push("networkin_rate".to_owned());
 
         argv.push("StartTime".to_owned());
@@ -25,6 +26,10 @@ impl DATA for Data {
         }
 
         argv
+    }
+
+    fn get(&self, holder: Self::Holder, region: String) {
+        base::get(holder, region, Data());
     }
 
     fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>) {
