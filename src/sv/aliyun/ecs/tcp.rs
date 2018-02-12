@@ -4,12 +4,14 @@ use std::collections::HashMap;
 use ::serde_json;
 use serde_json::Value;
 
-use super::{DATA, Ecs};
-use super::super::{BASESTAMP, INTERVAL};
+use super::Ecs;
+use super::super::{DATA, BASESTAMP, INTERVAL};
 
 pub struct Data();
 
 impl DATA for Data {
+    type Holder = Arc<Mutex<HashMap<String, Ecs>>>;
+
     fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
         argv.push("net_tcpconnection".to_owned());

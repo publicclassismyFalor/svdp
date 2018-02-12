@@ -7,6 +7,8 @@ mod tcp;
 mod disk;
 mod netif;
 
+mod base;
+
 use ::serde_json;
 use serde_json::Value;
 
@@ -48,74 +50,10 @@ trait META {
     fn reflect(&self) -> DT;
 }
 
-trait DATA {
-    fn get(&self, holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String) {
-        let mut extra = self.argv_new(region);
-
-        let (tx, rx) = mpsc::channel();
-
-        thread::spawn(move || {
-            if let Ok(ret) = cmd_exec(extra.clone()) {
-                let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
-                if Value::Null == v {
-                    return;
-                }
-
-                tx.send(ret).unwrap();
-
-                if let Value::String(ref cursor) = v["Cursor"] {
-                    extra.push("Cursor".to_owned());
-                    extra.push((*cursor).clone());
-
-                    while let Ok(ret) = cmd_exec(extra.clone()) {
-                        let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
-                        if Value::Null == v {
-                            return;
-                        }
-
-                        tx.send(ret).unwrap();
-
-                        if let Value::String(ref cursor) = v["Cursor"] {
-                            extra.pop();
-                            extra.push((*cursor).clone());
-                        } else {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
-
-        for r in rx {
-            self.insert(&holder, r);
-        }
-    }
-
-    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>);
-
-    fn argv_new(&self, region: String) -> Vec<String>;
-    fn argv_new_base(&self, region: String) -> Vec<String> {
-        vec![
-            "-region".to_owned(),
-            region,
-            "-domain".to_owned(),
-            "metrics.aliyuncs.com".to_owned(),
-            "-apiName".to_owned(),
-            "QueryMetricList".to_owned(),
-            "-apiVersion".to_owned(),
-            "2017-03-01".to_owned(),
-            "Action".to_owned(),
-            "QueryMetricList".to_owned(),
-            "Project".to_owned(),
-            "acs_ecs_dashboard".to_owned(),
-            "Period".to_owned(),
-            "15".to_owned(),
-            "Length".to_owned(),
-            "1000".to_owned(),
-            "Metric".to_owned(),
-        ]
-    }
-}
+//trait DATA {
+//    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>);
+//    fn argv_new(&self, region: String) -> Vec<String>;
+//}
 
 impl Ecs {
     fn new() -> Ecs {
@@ -465,44 +403,6 @@ impl ResFinal {
         ResFinal {
             class: "ecs".to_owned(),
             res: Vec::new(),
-        }
-    }
-}
-
-fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>, set: F) {
-    let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
-    if Value::Null == v {
-        return;
-    }
-
-    let body = &v["Datapoints"];
-    for i in 0.. {
-        if Value::Null == body[i] {
-            break;
-        } else {
-            let mut ecsid;
-            let mut ts;
-
-            if let Value::String(ref id) = body[i]["instanceId"] {
-                ecsid = id;
-            } else { continue; }
-
-            if let Value::Number(ref t) = body[i]["timestamp"] {
-                if let Some(t) = t.as_u64() {
-                    ts = t;
-                } else { continue; }
-            } else { continue; }
-
-            if let Some(ecs) = holder.lock().unwrap().get_mut(ecsid) {
-                /* align with 15s */
-                if let Some(mut inner) = ecs.data.get_mut(&(ts / 15000 * 15000)) {
-                    if let Value::Number(ref v) = body[i]["Average"] {
-                        if let Some(v) = v.as_f64() {
-                            set(&mut inner, v);
-                        } else { continue; }
-                    } else { continue; }
-                } else { continue; }
-            }
         }
     }
 }

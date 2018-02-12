@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use ::serde_json;
 use serde_json::Value;
 
-use super::{DT, META, DATA, Ecs};
-use super::super::{BASESTAMP, INTERVAL};
+use super::{DT, META, Ecs};
+use super::super::{DATA, BASESTAMP, INTERVAL};
 
 pub mod rd;
 pub mod wr;
@@ -94,6 +94,8 @@ impl META for Meta {
 }
 
 impl DATA for Data {
+    type Holder = Arc<Mutex<HashMap<String, Ecs>>>;
+
     fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = self.argv_new_base(region);
         argv.push("diskusage_utilization".to_owned());
