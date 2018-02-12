@@ -18,7 +18,7 @@ pub const CMD: &str = "/tmp/aliyun_cmdb";
 pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
 
 pub static mut BASESTAMP: u64 = 0;
-pub const INTERVAL: u64 = 5 * 60 * 1000;
+pub const INTERVAL: u64 = 1 * 60 * 1000;
 
 pub fn run() {
     let ts_now = || -> u64 {1000 * std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()};
