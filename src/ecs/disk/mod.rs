@@ -12,12 +12,12 @@ pub mod rd_tps;
 pub mod wr_tps;
 
 pub struct Disk {
-    rate: i32,  /* usage percent */
+    pub rate: i32,  /* usage percent */
 
-    rd: i32,  /* kbytes */
-    wr: i32,
-    rdtps: i32,
-    wrtps: i32,
+    pub rd: i32,  /* kbytes */
+    pub wr: i32,
+    pub rdtps: i32,
+    pub wrtps: i32,
 }
 
 impl Disk {

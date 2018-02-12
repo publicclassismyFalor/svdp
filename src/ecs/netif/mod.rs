@@ -12,10 +12,10 @@ use serde_json::Value;
 use super::Ecs;
 
 pub struct NetIf {
-    rd: i32,  /* kbytes */
-    wr: i32,
-    rdtps: i32,
-    wrtps: i32,
+    pub rd: i32,  /* kbytes */
+    pub wr: i32,
+    pub rdtps: i32,
+    pub wrtps: i32,
 }
 
 impl NetIf {
