@@ -414,7 +414,7 @@ fn get_data(holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String) {
     let mut netif: Vec<ResNetIf>;
 
     let mut resfinal = ResFinal::new();
-    for (id, v) in holder.lock().unwrap().iter() {
+    for (ecsid, v) in holder.lock().unwrap().iter() {
         for (k1, v1) in v.data.iter() {
             ts = (k1 / 1000) as i32;
             cpu_rate = v1.cpu_rate;
@@ -426,7 +426,8 @@ fn get_data(holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String) {
             disk = Vec::new();
             for (k2, v2) in v1.disk.iter() {
                 disk.push(ResDisk {
-                    id: v.disk.get(k2).unwrap().to_owned(),
+                    id: k2.to_owned(),
+                    //id: v.disk.get(k2).unwrap_or(&String::from("_")).to_owned(),
                     rate: v2.rate,
                     rd: v2.rd,
                     wr: v2.wr,
@@ -446,7 +447,7 @@ fn get_data(holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String) {
                 });
             }
 
-            resfinal.res.push(Res::new(id.to_owned(), ts, cpu_rate, mem_rate, load5m, load15m, tcp, disk, netif));
+            resfinal.res.push(Res::new(ecsid.to_owned(), ts, cpu_rate, mem_rate, load5m, load15m, tcp, disk, netif));
         }
     }
 
