@@ -50,11 +50,6 @@ trait META {
     fn reflect(&self) -> DT;
 }
 
-//trait DATA {
-//    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>);
-//    fn argv_new(&self, region: String) -> Vec<String>;
-//}
-
 impl Ecs {
     fn new() -> Ecs {
         let mut res = Ecs {
@@ -308,8 +303,8 @@ fn get_data(holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String) {
             disk = Vec::new();
             for (k2, v2) in v1.disk.iter() {
                 disk.push(ResDisk {
-                    id: k2.to_owned(),
-                    //id: v.disk.get(k2).unwrap_or(&String::from("_")).to_owned(),
+                    dev: k2.to_owned(),
+                    //dev: v.disk.get(k2).unwrap_or(&String::from("_")).to_owned(),
                     rate: v2.rate,
                     rd: v2.rd,
                     wr: v2.wr,
@@ -339,7 +334,7 @@ fn get_data(holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String) {
 
 #[derive(Serialize, Deserialize)]
 struct ResDisk {
-    id: String,
+    dev: String,
 
     rate: i32,
     rd: i32,
