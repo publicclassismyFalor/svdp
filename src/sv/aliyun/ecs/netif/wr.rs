@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use super::NetIf;
 use super::super::{DATA, Ecs};
+use super::super::super::{BASESTAMP, INTERVAL};
 
 pub struct Data();
 
@@ -13,12 +14,12 @@ impl DATA for Data {
 
         argv.push("StartTime".to_owned());
         unsafe {
-            argv.push(::BASESTAMP.to_string());
+            argv.push(BASESTAMP.to_string());
         }
 
         argv.push("EndTime".to_owned());
         unsafe {
-            argv.push((::BASESTAMP + ::INTERVAL).to_string());
+            argv.push((BASESTAMP + INTERVAL).to_string());
         }
 
         argv

@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
 
-use super::cmd_exec;
+use super::{BASESTAMP, INTERVAL, cmd_exec};
 
 enum DT {
     Ecs,
@@ -125,10 +125,10 @@ impl Ecs {
         };
 
         let ts;
-        unsafe { ts = ::BASESTAMP; }
+        unsafe { ts = BASESTAMP; }
 
         /* Aliyun TimeStamp: (StartTime, EndTime] */
-        for i in 1..(::INTERVAL / 15000 + 1) {
+        for i in 1..(INTERVAL / 15000 + 1) {
             res.data.insert(ts + i * 15000, Inner::new());
         }
 

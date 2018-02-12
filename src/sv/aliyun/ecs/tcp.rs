@@ -5,6 +5,7 @@ use ::serde_json;
 use serde_json::Value;
 
 use super::{DATA, Ecs};
+use super::super::{BASESTAMP, INTERVAL};
 
 pub struct Data();
 
@@ -15,12 +16,12 @@ impl DATA for Data {
 
         argv.push("StartTime".to_owned());
         unsafe {
-            argv.push(::BASESTAMP.to_string());
+            argv.push(BASESTAMP.to_string());
         }
 
         argv.push("EndTime".to_owned());
         unsafe {
-            argv.push((::BASESTAMP + ::INTERVAL).to_string());
+            argv.push((BASESTAMP + INTERVAL).to_string());
         }
 
         argv

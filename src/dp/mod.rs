@@ -1,3 +1,2 @@
-fn do() {
-
+pub fn go() {
 }
