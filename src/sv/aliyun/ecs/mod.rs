@@ -25,13 +25,13 @@ enum DT {
 }
 
 /* key: instance_id */
-struct Ecs {
+pub struct Ecs {
     data: HashMap<u64, Inner>,  /* K: time_stamp, V: Supervisor Data */
 
     disk: HashMap<String, String>,  /* K: Device, V: DiskId */
 }
 
-struct Inner {
+pub struct Inner {
     cpu_rate: i16,
     mem_rate: i16,
     load5m: i32,

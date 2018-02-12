@@ -21,7 +21,7 @@ pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNk
 pub static mut BASESTAMP: u64 = 0;
 pub const INTERVAL: u64 = 1 * 60 * 1000;
 
-trait DATA {
+pub trait DATA {
     type Holder;
 
     fn argv_new(&self, region: String) -> Vec<String>;

@@ -31,7 +31,7 @@ pub fn argv_new(region: String) -> Vec<String> {
     ]
 }
 
-pub fn get<T: DATA>(holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String, me: T) {
+pub fn get<T: DATA>(holder: <T as DATA>::Holder, region: String, me: T) {
     let mut extra = me.argv_new(region);
 
     let (tx, rx) = mpsc::channel();
