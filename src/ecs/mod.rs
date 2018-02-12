@@ -10,13 +10,12 @@ mod netif;
 use ::serde_json;
 use serde_json::Value;
 
-use std::process::Command;
 use std::collections::HashMap;
 
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
 
-use std::io::Error;
+use super::cmd_exec;
 
 enum DT {
     Ecs,
@@ -191,61 +190,6 @@ impl META for Meta {
     fn reflect(&self) -> DT {
         DT::Ecs
     }
-}
-
-fn cmd_exec(mut extra: Vec<String>) -> Result<Vec<u8>, Error> {
-    let mut argv: Vec<String> = Vec::new();
-
-    for x in ::ARGV.iter() {
-        argv.push((**x).to_string());
-    }
-
-    argv.append(&mut extra);
-
-    let output = Command::new(::CMD).args(argv).output() ?;
-
-    if output.status.success() {
-        return Ok(output.stdout);
-    } else {
-        return Err(Error::from_raw_os_error(output.status.code().unwrap_or(1)));
-    }
-}
-
-fn get_region() -> Option<Vec<String>> {
-    let mut res: Vec<String> = Vec::new();
-    let extra = vec![
-        "-domain".to_owned(),
-        "ecs.aliyuncs.com".to_owned(),
-        "-apiName".to_owned(),
-        "DescribeRegions".to_owned(),
-        "-apiVersion".to_owned(),
-        "2014-05-26".to_owned(),
-        "Action".to_owned(),
-        "DescribeRegions".to_owned(),
-    ];
-
-    if let Ok(stdout) = cmd_exec(extra) {
-        let v: Value = serde_json::from_slice(&stdout).unwrap_or(Value::Null);
-        if Value::Null == v {
-            return None;
-        }
-
-        for x in 0.. {
-            if Value::Null == v["Regions"]["Region"][x] {
-                break;
-            } else {
-                if let Value::String(ref s) = v["Regions"]["Region"][x]["RegionId"] {
-                    res.push(s.to_string());
-                } else {
-                    return None;
-                }
-            }
-        }
-    } else {
-        return None;
-    }
-
-    Some(res)
 }
 
 /*
@@ -566,27 +510,25 @@ fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<String, Ecs>>>, dat
 /********************
  * Public InterFace *
  ********************/
-pub fn sv() {
-    if let Some(regions) = get_region() {
-        let mut tids = vec![];
-        let holder = Arc::new(Mutex::new(HashMap::new()));
+pub fn sv(regions: Vec<String>) {
+    let mut tids = vec![];
+    let holder = Arc::new(Mutex::new(HashMap::new()));
 
-        for region in regions.into_iter() {
-            let h = Arc::clone(&holder);
-            tids.push(thread::spawn(move || {
-                get_meta(h, region, Meta());
-            }));
-        }
-
-        for tid in tids {
-            tid.join().unwrap();
-        }
-
-        /*
-         * Aliyun BUG ?
-         * 不传 Dimensions，则 region 字段不起过滤作用，
-         * 任一有效值皆会返回所有区域的数据
-         */
-        get_data(holder, "cn-beijing".to_owned());
+    for region in regions.into_iter() {
+        let h = Arc::clone(&holder);
+        tids.push(thread::spawn(move || {
+            get_meta(h, region, Meta());
+        }));
     }
+
+    for tid in tids {
+        tid.join().unwrap();
+    }
+
+    /*
+     * Aliyun BUG ?
+     * 不传 Dimensions，则 region 字段不起过滤作用，
+     * 任一有效值皆会返回所有区域的数据
+     */
+    get_data(holder, "cn-beijing".to_owned());
 }
