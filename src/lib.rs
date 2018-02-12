@@ -132,3 +132,11 @@ fn cmd_exec(mut extra: Vec<String>) -> Result<Vec<u8>, Error> {
         return Err(Error::from_raw_os_error(output.status.code().unwrap_or(1)));
     }
 }
+
+trait DATA {
+    type Holder;
+
+    fn argv_new(&self, region: String) -> Vec<String>;
+    fn get(&self, holder: Self::Holder, region: String);
+    fn insert(&self, holder: &Self::Holder, data: Vec<u8>);
+}
