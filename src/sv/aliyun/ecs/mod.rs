@@ -19,16 +19,16 @@ use std::sync::{mpsc, Arc, Mutex};
 
 use super::{DATA, BASESTAMP, INTERVAL, cmd_exec};
 
-enum DT {
-    Ecs,
-    Disk,
-}
+//enum DT {
+//    Ecs,
+//    Disk,
+//}
 
 /* key: instance_id */
 pub struct Ecs {
     data: HashMap<u64, Inner>,  /* K: time_stamp, V: Supervisor Data */
 
-    disk: HashMap<String, String>,  /* K: Device, V: DiskId */
+    //disk: HashMap<String, String>,  /* K: Device, V: DiskId */
 }
 
 pub struct Inner {
@@ -47,14 +47,14 @@ struct Meta();
 trait META {
     fn argv_new(&self, region: String) -> Vec<String>;
     fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>);
-    fn reflect(&self) -> DT;
+    //fn reflect(&self) -> DT;
 }
 
 impl Ecs {
     fn new() -> Ecs {
         let mut res = Ecs {
             data: HashMap::new(),
-            disk: HashMap::new(),
+            //disk: HashMap::new(),
         };
 
         let ts;
@@ -120,9 +120,9 @@ impl META for Meta {
         }
     }
 
-    fn reflect(&self) -> DT {
-        DT::Ecs
-    }
+    //fn reflect(&self) -> DT {
+    //    DT::Ecs
+    //}
 }
 
 /*
@@ -180,13 +180,13 @@ fn get_meta <T: META> (holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String,
             }
         }
 
-        match t.reflect() {
-            DT::Ecs=> {
-                let h = Arc::clone(&holder);
-                get_meta(h, region, disk::Meta());
-            },
-            _ => {}
-        }
+        //match t.reflect() {
+        //    DT::Ecs=> {
+        //        let h = Arc::clone(&holder);
+        //        get_meta(h, region, disk::Meta());
+        //    },
+        //    _ => {}
+        //}
     }
 }
 

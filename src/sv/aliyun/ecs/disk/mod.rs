@@ -5,7 +5,8 @@ use ::serde_json;
 use serde_json::Value;
 
 use super::base;
-use super::{DT, META, Ecs};
+//use super::{DT, META};
+use super::Ecs;
 use super::super::{DATA, BASESTAMP, INTERVAL};
 
 pub mod rd;
@@ -34,65 +35,66 @@ impl Disk {
     }
 }
 
-pub struct Meta();
+//pub struct Meta();
+
+//impl META for Meta {
+//    fn argv_new(&self, region: String) -> Vec<String> {
+//        vec![
+//            "-region".to_owned(),
+//            region.to_owned(),
+//            "-domain".to_owned(),
+//            "ecs.aliyuncs.com".to_owned(),
+//            "-apiName".to_owned(),
+//            "DescribeDisks".to_owned(),
+//            "-apiVersion".to_owned(),
+//            "2014-05-26".to_owned(),
+//            "Action".to_owned(),
+//            "DescribeDisks".to_owned(),
+//            "PageSize".to_owned(),
+//            "100".to_owned(),
+//        ]
+//    }
+//
+//    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>) {
+//        let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
+//        if Value::Null == v {
+//            return;
+//        }
+//
+//        let body = &v["Disks"]["Disk"];
+//        let mut diskid;
+//        let mut device;
+//        for i in 0.. {
+//            if Value::Null == body[i] {
+//                break;
+//            } else {
+//                if let Value::String(ref ecsid) = body[i]["InstanceId"] {
+//                    if let Some(ecs) = holder.lock().unwrap().get_mut(ecsid) {
+//                        if let Value::String(ref id) = body[i]["DiskId"] {
+//                            diskid= id;
+//                        } else {
+//                            continue;
+//                        }
+//
+//                        if let Value::String(ref dev) = body[i]["Device"] {
+//                            device = dev;
+//                        } else {
+//                            continue;
+//                        }
+//
+//                        ecs.disk.insert((*device).clone(), (*diskid).clone());
+//                    }
+//                }
+//            }
+//        }
+//    }
+//
+//    fn reflect(&self) -> DT {
+//        DT::Disk
+//    }
+//}
+
 pub struct Data();  /* disk rate */
-
-impl META for Meta {
-    fn argv_new(&self, region: String) -> Vec<String> {
-        vec![
-            "-region".to_owned(),
-            region.to_owned(),
-            "-domain".to_owned(),
-            "ecs.aliyuncs.com".to_owned(),
-            "-apiName".to_owned(),
-            "DescribeDisks".to_owned(),
-            "-apiVersion".to_owned(),
-            "2014-05-26".to_owned(),
-            "Action".to_owned(),
-            "DescribeDisks".to_owned(),
-            "PageSize".to_owned(),
-            "100".to_owned(),
-        ]
-    }
-
-    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>) {
-        let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
-        if Value::Null == v {
-            return;
-        }
-
-        let body = &v["Disks"]["Disk"];
-        let mut diskid;
-        let mut device;
-        for i in 0.. {
-            if Value::Null == body[i] {
-                break;
-            } else {
-                if let Value::String(ref ecsid) = body[i]["InstanceId"] {
-                    if let Some(ecs) = holder.lock().unwrap().get_mut(ecsid) {
-                        if let Value::String(ref id) = body[i]["DiskId"] {
-                            diskid= id;
-                        } else {
-                            continue;
-                        }
-
-                        if let Value::String(ref dev) = body[i]["Device"] {
-                            device = dev;
-                        } else {
-                            continue;
-                        }
-
-                        ecs.disk.insert((*device).clone(), (*diskid).clone());
-                    }
-                }
-            }
-        }
-    }
-
-    fn reflect(&self) -> DT {
-        DT::Disk
-    }
-}
 
 impl DATA for Data {
     type Holder = Arc<Mutex<HashMap<String, Ecs>>>;
