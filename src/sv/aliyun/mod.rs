@@ -15,7 +15,7 @@ use std::io::Error;
 use ::serde_json;
 use serde_json::Value;
 
-pub const PGINFO: &str = "postgres://fh@%2Fhome%2Ffh%2Frust%2Fsvdp";
+pub const PGINFO: &str = "postgres://fh@%2Fhome%2Ffh";
 
 pub const CMD: &str = "/tmp/aliyun_cmdb";
 pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
