@@ -281,7 +281,7 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
             if let Err(e) = pgconn.execute(
                 "INSERT INTO sv_ecs VALUES ($1, $2)",
                 &[
-                    &(ts / 1000).to_string(),
+                    &((ts / 1000) as i32).to_string(),
                     &serde_json::to_string(&v.data).unwrap()
                 ]) {
                 eprintln!("ERR! ==> {}", e);
