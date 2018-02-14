@@ -285,11 +285,11 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
                     &(ts / 1000).to_string(),
                     &serde_json::to_string(&v.data).unwrap()
                 ]) {
-                eprintln!("{}", e);
+                eprintln!("ERR! ==> {}", e);
             }
         }
     } else {
-        eprintln!("DB connect err!");
+        eprintln!("ERR! ==> DB connect failed.");
     }
 }
 
