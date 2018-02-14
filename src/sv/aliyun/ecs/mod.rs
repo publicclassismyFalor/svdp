@@ -31,6 +31,7 @@ pub struct Ecs {
     //disk: HashMap<String, String>,  /* K: Device, V: DiskId */
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Inner {
     cpu_rate: i16,
     mem_rate: i16,
