@@ -33,8 +33,11 @@ pub trait DATA {
 
 pub fn go() {
     let ts_now = || 1000 * std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-
     unsafe { BASESTAMP = ts_now() / 15000 * 15000 - INTERVAL; }
+
+    let pgconn = Connection::connect(PGINFO, TlsMode::None).unwrap();
+
+    pgconn.execute("CREATE TABLE IF NOT EXIST sv_ecs (ts int, sv jsonb) PARTITION BY RANGE (ts)");
 
     loop {
         let regions;
@@ -51,6 +54,18 @@ pub fn go() {
 
         let mut basestamp;
         unsafe { basestamp = BASESTAMP; }
+
+        let mut tbmark = basestamp / 3600;
+        while (5 + ts_now() / 3600) > tbmark {
+            pgconn.execute(
+                &format!("CREATE TABLE IF NOT EXISTS sv_ecs_{} PARTITION OF sv_ecs FOR VALUES FROM ({}) TO ({})",
+                tbmark - 1,
+                3600 * (tbmark - 1),
+                3600 * tbmark));
+
+            tbmark += 1;
+        }
+
         while ts_now() >= (basestamp + INTERVAL) {
             let mut tids = vec![];
 

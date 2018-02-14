@@ -280,7 +280,7 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
     if let Ok(pgconn) = Connection::connect(PGINFO, TlsMode::None) {
         for (ts, v) in holder.lock().unwrap().iter() {
             if let Err(e) = pgconn.execute(
-                "INSERT INTO sv_ecs VALUES ($1, $2)",
+                "INSERT INTO sv_ecs VALUES ($1, '$2')",
                 &[
                     &(ts / 1000).to_string(),
                     &serde_json::to_string(&v.data).unwrap()
