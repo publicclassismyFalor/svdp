@@ -38,7 +38,7 @@ pub fn go() {
 
     let pgconn = Connection::connect(PGINFO, TlsMode::None).unwrap();
 
-    pgconn.execute("CREATE TABLE IF NOT EXIST sv_ecs (ts int, sv jsonb) PARTITION BY RANGE (ts)");
+    pgconn.execute("CREATE TABLE IF NOT EXISTS sv_ecs (ts int, sv jsonb) PARTITION BY RANGE (ts)", &[]).unwrap();
 
     loop {
         let regions;
@@ -56,13 +56,15 @@ pub fn go() {
         let mut basestamp;
         unsafe { basestamp = BASESTAMP; }
 
-        let mut tbmark = basestamp / 3600;
-        while (5 + ts_now() / 3600) > tbmark {
-            pgconn.execute(
+        let mut tbmark = basestamp / 1000 / 3600;
+        while (5 + ts_now() / 1000 / 3600) > tbmark {
+            if let Err(e) = pgconn.execute(
                 &format!("CREATE TABLE IF NOT EXISTS sv_ecs_{} PARTITION OF sv_ecs FOR VALUES FROM ({}) TO ({})",
                 tbmark - 1,
-                3600 * (tbmark - 1),
-                3600 * tbmark));
+                (3600 * (tbmark - 1)) as i32,
+                (3600 * tbmark) as i32), &[]) {
+                eprintln!("ERR! ==> {}", e);
+            }
 
             tbmark += 1;
         }
