@@ -26,7 +26,7 @@ use super::{DATA, BASESTAMP, INTERVAL, cmd_exec};
 
 /* key: instance_id */
 pub struct Ecs {
-    data: HashMap<u64, Inner>,  /* K: time_stamp, V: Supervisor Data */
+    data: HashMap<String, Inner>,  /* K: time_stamp, V: Supervisor Data */
 
     //disk: HashMap<String, String>,  /* K: Device, V: DiskId */
 }
@@ -47,26 +47,16 @@ struct Meta();
 
 trait META {
     fn argv_new(&self, region: String) -> Vec<String>;
-    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>);
+    fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>);
     //fn reflect(&self) -> DT;
 }
 
 impl Ecs {
     fn new() -> Ecs {
-        let mut res = Ecs {
+        Ecs {
             data: HashMap::new(),
             //disk: HashMap::new(),
-        };
-
-        let ts;
-        unsafe { ts = BASESTAMP; }
-
-        /* Aliyun TimeStamp: (StartTime, EndTime] */
-        for i in 1..(INTERVAL / 15000 + 1) {
-            res.data.insert(ts + i * 15000, Inner::new());
         }
-
-        res
     }
 }
 
@@ -103,7 +93,7 @@ impl META for Meta {
         ]
     }
 
-    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>) {
         let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
         if Value::Null == v {
             return;
@@ -115,7 +105,10 @@ impl META for Meta {
                 break;
             } else {
                 if let Value::String(ref id) = body[i]["InstanceId"] {
-                    holder.lock().unwrap().insert((*id).clone(), Ecs::new());
+                    let mut h = holder.lock().unwrap();
+                    for (_, ecs) in h.iter_mut() {
+                        ecs.data.insert((*id).clone(), Inner::new());
+                    }
                 }
             }
         }
@@ -130,7 +123,7 @@ impl META for Meta {
  * return HashMap(contains meta info of all ecs+disk+netif)
  * @param start_time: unix time_stamp
  */
-fn get_meta <T: META> (holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String, t: T) {
+fn get_meta <T: META> (holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String, t: T) {
     let mut extra = t.argv_new(region.clone());
 
     if let Ok(ret) = cmd_exec(extra.clone()) {
@@ -191,7 +184,7 @@ fn get_meta <T: META> (holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String,
     }
 }
 
-fn get_data(holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String) {
+fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
     let mut tids = vec![];
 
     let h = Arc::clone(&holder);
@@ -282,54 +275,54 @@ fn get_data(holder: Arc<Mutex<HashMap<String, Ecs>>>, region: String) {
     }
 
     /* Final Result */
-    let mut ts;
-    let mut cpu_rate;
-    let mut mem_rate;
-    let mut load5m;
-    let mut load15m;
-    let mut tcp;
-    let mut disk: Vec<ResDisk>;
-    let mut netif: Vec<ResNetIf>;
-
-    let mut resfinal = ResFinal::new();
-    for (ecsid, v) in holder.lock().unwrap().iter() {
-        for (k1, v1) in v.data.iter() {
-            ts = (k1 / 1000) as i32;
-            cpu_rate = v1.cpu_rate;
-            mem_rate = v1.mem_rate;
-            load5m = v1.load5m;
-            load15m = v1.load15m;
-            tcp = v1.tcp;
-
-            disk = Vec::new();
-            for (k2, v2) in v1.disk.iter() {
-                disk.push(ResDisk {
-                    dev: k2.to_owned(),
-                    //dev: v.disk.get(k2).unwrap_or(&String::from("_")).to_owned(),
-                    rate: v2.rate,
-                    rd: v2.rd,
-                    wr: v2.wr,
-                    rdtps: v2.rdtps,
-                    wrtps: v2.wrtps,
-                });
-            }
-
-            netif = Vec::new();
-            for (k3, v3) in v1.netif.iter() {
-                netif.push(ResNetIf {
-                    ip: k3.to_owned(),
-                    rd: v3.rd,
-                    wr: v3.wr,
-                    rdtps: v3.rdtps,
-                    wrtps: v3.wrtps,
-                });
-            }
-
-            resfinal.res.push(Res::new(ecsid.to_owned(), ts, cpu_rate, mem_rate, load5m, load15m, tcp, disk, netif));
-        }
-    }
-
-    println!("{}", serde_json::to_string(&resfinal).unwrap());
+//    let mut ts;
+//    let mut cpu_rate;
+//    let mut mem_rate;
+//    let mut load5m;
+//    let mut load15m;
+//    let mut tcp;
+//    let mut disk: Vec<ResDisk>;
+//    let mut netif: Vec<ResNetIf>;
+//
+//    let mut resfinal = ResFinal::new();
+//    for (ecsid, v) in holder.lock().unwrap().iter() {
+//        for (k1, v1) in v.data.iter() {
+//            ts = (k1 / 1000) as i32;
+//            cpu_rate = v1.cpu_rate;
+//            mem_rate = v1.mem_rate;
+//            load5m = v1.load5m;
+//            load15m = v1.load15m;
+//            tcp = v1.tcp;
+//
+//            disk = Vec::new();
+//            for (k2, v2) in v1.disk.iter() {
+//                disk.push(ResDisk {
+//                    dev: k2.to_owned(),
+//                    //dev: v.disk.get(k2).unwrap_or(&String::from("_")).to_owned(),
+//                    rate: v2.rate,
+//                    rd: v2.rd,
+//                    wr: v2.wr,
+//                    rdtps: v2.rdtps,
+//                    wrtps: v2.wrtps,
+//                });
+//            }
+//
+//            netif = Vec::new();
+//            for (k3, v3) in v1.netif.iter() {
+//                netif.push(ResNetIf {
+//                    ip: k3.to_owned(),
+//                    rd: v3.rd,
+//                    wr: v3.wr,
+//                    rdtps: v3.rdtps,
+//                    wrtps: v3.wrtps,
+//                });
+//            }
+//
+//            resfinal.res.push(Res::new(ecsid.to_owned(), ts, cpu_rate, mem_rate, load5m, load15m, tcp, disk, netif));
+//        }
+//    }
+//
+//    println!("{}", serde_json::to_string(&resfinal).unwrap());
     // TODO 发送本次的结果至前端
 }
 
@@ -407,9 +400,19 @@ impl ResFinal {
  * Public InterFace *
  ********************/
 pub fn sv(regions: Vec<String>) {
-    let mut tids = vec![];
-    let holder = Arc::new(Mutex::new(HashMap::new()));
+    let mut holder= HashMap::new();
 
+    let ts;
+    unsafe { ts = BASESTAMP; }
+
+    /* Aliyun TimeStamp: (StartTime, EndTime] */
+    for i in 1..(INTERVAL / 15000 + 1) {
+        holder.insert(ts + i * 15000, Ecs::new());
+    }
+
+    let holder = Arc::new(Mutex::new(holder));
+
+    let mut tids = vec![];
     for region in regions.into_iter() {
         let h = Arc::clone(&holder);
         tids.push(thread::spawn(move || {
