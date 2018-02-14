@@ -14,6 +14,7 @@ use std::io::Error;
 
 use ::serde_json;
 use serde_json::Value;
+use postgres::{Connection, TlsMode};
 
 pub const PGINFO: &str = "postgres://fh@%2Fhome%2Ffh/svdp";
 

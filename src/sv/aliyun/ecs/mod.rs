@@ -11,7 +11,6 @@ mod base;
 
 use ::serde_json;
 use serde_json::Value;
-
 use postgres::{Connection, TlsMode};
 
 use std::collections::HashMap;
