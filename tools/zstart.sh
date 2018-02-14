@@ -45,6 +45,7 @@ if [[ 0 -eq `\ls -d ${zPgPath} | wc -l` ]]; then
 fi
 
 # start postgresql
+zPgPath=${HOME}/.____PostgreSQL
 zPgLibPath=${zPgPath}/lib
 zPgBinPath=${zPgPath}/bin
 zPgDataPath=${zPgPath}/data
@@ -55,7 +56,7 @@ echo "listen_addresses = ''" >> ${zPgDataPath}/postgresql.conf
 
 # PG: 以源码根路径作为 UNIX 域套接字存放路径
 sed -i '/#*unix_socket_directories =/d' ${zPgDataPath}/postgresql.conf
-echo "unix_socket_directories = '${zProjPath}'" >> ${zPgDataPath}/postgresql.conf
+echo "unix_socket_directories = '${HOME}'" >> ${zPgDataPath}/postgresql.conf
 
 # PG: UNIX 域套接字权限
 sed -i '/#*unix_socket_permissions =/d' ${zPgDataPath}/postgresql.conf

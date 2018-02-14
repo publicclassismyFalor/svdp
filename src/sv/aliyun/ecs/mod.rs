@@ -12,12 +12,14 @@ mod base;
 use ::serde_json;
 use serde_json::Value;
 
+use postgres::{Connection, TlsMode};
+
 use std::collections::HashMap;
 
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
 
-use super::{DATA, BASESTAMP, INTERVAL, cmd_exec};
+use super::{DATA, PGINFO, BASESTAMP, INTERVAL, cmd_exec};
 
 //enum DT {
 //    Ecs,
@@ -274,125 +276,16 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
         tid.join().unwrap();
     }
 
-    /* Final Result */
-//    let mut ts;
-//    let mut cpu_rate;
-//    let mut mem_rate;
-//    let mut load5m;
-//    let mut load15m;
-//    let mut tcp;
-//    let mut disk: Vec<ResDisk>;
-//    let mut netif: Vec<ResNetIf>;
-//
-//    let mut resfinal = ResFinal::new();
-//    for (ecsid, v) in holder.lock().unwrap().iter() {
-//        for (k1, v1) in v.data.iter() {
-//            ts = (k1 / 1000) as i32;
-//            cpu_rate = v1.cpu_rate;
-//            mem_rate = v1.mem_rate;
-//            load5m = v1.load5m;
-//            load15m = v1.load15m;
-//            tcp = v1.tcp;
-//
-//            disk = Vec::new();
-//            for (k2, v2) in v1.disk.iter() {
-//                disk.push(ResDisk {
-//                    dev: k2.to_owned(),
-//                    //dev: v.disk.get(k2).unwrap_or(&String::from("_")).to_owned(),
-//                    rate: v2.rate,
-//                    rd: v2.rd,
-//                    wr: v2.wr,
-//                    rdtps: v2.rdtps,
-//                    wrtps: v2.wrtps,
-//                });
-//            }
-//
-//            netif = Vec::new();
-//            for (k3, v3) in v1.netif.iter() {
-//                netif.push(ResNetIf {
-//                    ip: k3.to_owned(),
-//                    rd: v3.rd,
-//                    wr: v3.wr,
-//                    rdtps: v3.rdtps,
-//                    wrtps: v3.wrtps,
-//                });
-//            }
-//
-//            resfinal.res.push(Res::new(ecsid.to_owned(), ts, cpu_rate, mem_rate, load5m, load15m, tcp, disk, netif));
-//        }
-//    }
-//
-//    println!("{}", serde_json::to_string(&resfinal).unwrap());
-    // TODO 发送本次的结果至前端
-}
+    /* write final result to DB */
+    let pgconn = Connection::connect(PGINFO, TlsMode::None).unwrap();
 
-#[derive(Serialize, Deserialize)]
-struct ResDisk {
-    dev: String,
-
-    rate: i32,
-    rd: i32,
-    wr: i32,
-    rdtps: i32,
-    wrtps: i32,
-}
-
-#[derive(Serialize, Deserialize)]
-struct ResNetIf {
-    ip: String,
-
-    rd: i32,
-    wr: i32,
-    rdtps: i32,
-    wrtps: i32,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Res {
-    id: String,
-    ts: i32,
-
-    cpu_rate: i16,
-    mem_rate: i16,
-    load5m: i32,
-    load15m: i32,
-    tcp: i32,
-
-    disk: Vec<ResDisk>,
-    netif: Vec<ResNetIf>,
-}
-
-impl Res {
-    fn new(id: String, ts: i32,
-           cpu_rate: i16, mem_rate: i16,
-           load5m: i32, load15m: i32, tcp: i32,
-           disk: Vec<ResDisk>, netif: Vec<ResNetIf>) -> Res {
-        Res {
-            id,
-            ts,
-            cpu_rate,
-            mem_rate,
-            load5m,
-            load15m,
-            tcp,
-            disk,
-            netif,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct ResFinal {
-    class: String,
-    res: Vec<Res>,
-}
-
-impl ResFinal {
-    fn new() -> ResFinal {
-        ResFinal {
-            class: "ecs".to_owned(),
-            res: Vec::new(),
-        }
+    for (ts, v) in holder.lock().unwrap().iter() {
+        pgconn.execute(
+            "INSERT INTO sv_ecs VALUES ($1, $2)",
+            &[
+                &(ts / 1000).to_string(),
+                &serde_json::to_string(&v.data).unwrap()
+            ]).unwrap();
     }
 }
 
