@@ -73,7 +73,7 @@ pub fn get<T: DATA>(holder: <T as DATA>::Holder, region: String, me: T) {
     }
 }
 
-pub fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>, set: F) {
+pub fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>, set: F) {
     let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
     if Value::Null == v {
         return;
@@ -84,12 +84,8 @@ pub fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<String, Ecs>>>,
         if Value::Null == body[i] {
             break;
         } else {
-            let mut ecsid;
             let mut ts;
-
-            if let Value::String(ref id) = body[i]["instanceId"] {
-                ecsid = id;
-            } else { continue; }
+            let mut ecsid;
 
             if let Value::Number(ref t) = body[i]["timestamp"] {
                 if let Some(t) = t.as_u64() {
@@ -97,9 +93,13 @@ pub fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<String, Ecs>>>,
                 } else { continue; }
             } else { continue; }
 
-            if let Some(ecs) = holder.lock().unwrap().get_mut(ecsid) {
-                /* align with 15s */
-                if let Some(mut inner) = ecs.data.get_mut(&(ts / 15000 * 15000)) {
+            if let Value::String(ref id) = body[i]["instanceId"] {
+                ecsid = id;
+            } else { continue; }
+
+            /* align with 15s */
+            if let Some(ecs) = holder.lock().unwrap().get_mut(&(ts / 15000 * 15000)) {
+                if let Some(mut inner) = ecs.data.get_mut(ecsid) {
                     if let Value::Number(ref v) = body[i]["Average"] {
                         if let Some(v) = v.as_f64() {
                             set(&mut inner, v);

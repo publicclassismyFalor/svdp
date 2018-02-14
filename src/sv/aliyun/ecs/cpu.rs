@@ -8,7 +8,7 @@ use super::super::{DATA, BASESTAMP, INTERVAL};
 pub struct Data();
 
 impl DATA for Data {
-    type Holder = Arc<Mutex<HashMap<String, Ecs>>>;
+    type Holder = Arc<Mutex<HashMap<u64, Ecs>>>;
 
     fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = base::argv_new(region);
@@ -31,7 +31,7 @@ impl DATA for Data {
         base::get(holder, region, Data());
     }
 
-    fn insert(&self, holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>) {
+    fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>) {
         let setter = |inner: &mut Inner, v: f64| inner.cpu_rate = (v * 10.0) as i16;
 
         base::insert(holder, data, setter);

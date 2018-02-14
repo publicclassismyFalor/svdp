@@ -30,7 +30,7 @@ impl NetIf {
     }
 }
 
-fn insert<F: Fn(&mut NetIf, i32)>(holder: &Arc<Mutex<HashMap<String, Ecs>>>, data: Vec<u8>, set: F) {
+fn insert<F: Fn(&mut NetIf, i32)>(holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>, set: F) {
     let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
     if Value::Null == v {
         return;
@@ -59,9 +59,9 @@ fn insert<F: Fn(&mut NetIf, i32)>(holder: &Arc<Mutex<HashMap<String, Ecs>>>, dat
                 ip = ipaddr;
             } else { continue; }
 
-            if let Some(ecs) = holder.lock().unwrap().get_mut(ecsid) {
-                /* align with 15s */
-                if let Some(inner) = ecs.data.get_mut(&(ts / 15000 * 15000)) {
+            /* align with 15s */
+            if let Some(ecs) = holder.lock().unwrap().get_mut(&(ts / 15000 * 15000)) {
+                if let Some(inner) = ecs.data.get_mut(ecsid) {
                     if let Value::Number(ref v) = body[i]["Average"] {
                         if let Some(v) = v.as_u64() {
                             set(inner.netif.entry(ip.to_owned()).or_insert(NetIf::new()), v as i32);
