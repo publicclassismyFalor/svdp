@@ -6,7 +6,7 @@ authors = ["test <test@test>"]
 [dependencies]
 clap = "2.29.4"
 
-postgres = "0.15.1"
+postgres = { version = "0.15.1", features = ["with-serde_json"] }
 r2d2_postgres = "0.14.0"
 
 reqwest = "0.8.4"
