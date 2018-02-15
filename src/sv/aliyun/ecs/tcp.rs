@@ -50,8 +50,8 @@ impl DATA for Data {
                     if "TCP_TOTAL" != s { continue; }
                 } else { continue; }
 
-                let mut ecsid;
-                let mut ts;
+                let ecsid;
+                let ts;
 
                 if let Value::String(ref id) = body[i]["instanceId"] {
                     ecsid = id;

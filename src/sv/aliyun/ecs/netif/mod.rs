@@ -41,9 +41,9 @@ fn insert<F: Fn(&mut NetIf, i32)>(holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: 
         if Value::Null == body[i] {
             break;
         } else {
-            let mut ecsid;
-            let mut ts;
-            let mut ip;
+            let ecsid;
+            let ts;
+            let ip;
 
             if let Value::String(ref id) = body[i]["instanceId"] {
                 ecsid = id;

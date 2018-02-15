@@ -84,8 +84,8 @@ pub fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<u64, Ecs>>>, da
         if Value::Null == body[i] {
             break;
         } else {
-            let mut ts;
-            let mut ecsid;
+            let ts;
+            let ecsid;
 
             if let Value::Number(ref t) = body[i]["timestamp"] {
                 if let Some(t) = t.as_u64() {

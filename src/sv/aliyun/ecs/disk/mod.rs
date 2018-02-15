@@ -140,9 +140,9 @@ fn insert<F: Fn(&mut Disk, i32)>(holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: V
         if Value::Null == body[i] {
             break;
         } else {
-            let mut ecsid;
-            let mut ts;
-            let mut dev;
+            let ecsid;
+            let ts;
+            let dev;
 
             if let Value::String(ref id) = body[i]["instanceId"] {
                 ecsid = id;
