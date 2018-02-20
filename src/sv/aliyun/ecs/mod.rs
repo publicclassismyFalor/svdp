@@ -25,9 +25,9 @@ use super::{DATA, PGINFO, BASESTAMP, INTERVAL, cmd_exec};
 //    Disk,
 //}
 
-/* key: instance_id */
+/* key: time_stamp */
 pub struct Ecs {
-    data: HashMap<String, Inner>,  /* K: time_stamp, V: Supervisor Data */
+    data: HashMap<String, Inner>,  /* K: instance_id, V: Supervisor Data */
 
     //disk: HashMap<String, String>,  /* K: Device, V: DiskId */
 }
@@ -44,7 +44,7 @@ pub struct Inner {
     netif: HashMap<String, netif::NetIf>,  /* K: IP */
 }
 
-struct Meta();
+struct Meta;
 
 trait META {
     fn argv_new(&self, region: String) -> Vec<String>;
@@ -191,84 +191,84 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(|| {
-            cpu::Data().get(h, r);
+            cpu::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(|| {
-            mem::Data().get(h, r);
+            mem::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            disk::Data().get(h, r);
+            disk::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            load5m::Data().get(h, r);
+            load5m::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            load15m::Data().get(h, r);
+            load15m::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            tcp::Data().get(h, r);
+            tcp::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            disk::rd::Data().get(h, r);
+            disk::rd::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            disk::wr::Data().get(h, r);
+            disk::wr::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            disk::rd_tps::Data().get(h, r);
+            disk::rd_tps::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            disk::wr_tps::Data().get(h, r);
+            disk::wr_tps::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            netif::rd::Data().get(h, r);
+            netif::rd::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            netif::wr::Data().get(h, r);
+            netif::wr::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            netif::rd_tps::Data().get(h, r);
+            netif::rd_tps::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     tids.push(thread::spawn(move || {
-            netif::wr_tps::Data().get(h, region);
+            netif::wr_tps::Data.get(h, region);
         }));
 
     for tid in tids {
@@ -312,7 +312,7 @@ pub fn sv(regions: Vec<String>) {
     for region in regions.into_iter() {
         let h = Arc::clone(&holder);
         tids.push(thread::spawn(move || {
-            get_meta(h, region, Meta());
+            get_meta(h, region, Meta);
         }));
     }
 

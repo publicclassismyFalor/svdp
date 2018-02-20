@@ -95,7 +95,7 @@ impl Disk {
 //    }
 //}
 
-pub struct Data();  /* disk rate */
+pub struct Data;  /* disk rate */
 
 impl DATA for Data {
     type Holder = Arc<Mutex<HashMap<u64, Ecs>>>;
@@ -118,7 +118,7 @@ impl DATA for Data {
     }
 
     fn get(&self, holder: Self::Holder, region: String) {
-        base::get(holder, region, Data());
+        base::get(holder, region, Data);
     }
 
     fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>) {

@@ -6,7 +6,7 @@ use super::super::base;
 use super::super::Ecs;
 use super::super::super::{DATA, BASESTAMP, INTERVAL};
 
-pub struct Data ();
+pub struct Data;
 
 impl DATA for Data {
     type Holder = Arc<Mutex<HashMap<u64, Ecs>>>;
@@ -29,7 +29,7 @@ impl DATA for Data {
     }
 
     fn get(&self, holder: Self::Holder, region: String) {
-        base::get(holder, region, Data());
+        base::get(holder, region, Data);
     }
 
     fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>) {

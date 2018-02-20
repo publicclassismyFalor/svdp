@@ -10,6 +10,7 @@ postgres = { version = "0.15", features = ["with-serde_json"] }
 r2d2_postgres = "0.14"
 
 reqwest = "0.8"
+httparse = "1.2.4"
 
 serde = "1.0"
 serde_derive = "1.0"
