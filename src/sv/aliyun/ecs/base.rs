@@ -5,6 +5,17 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use super::{Ecs, Inner};
+use ::sv::aliyun;
+
+pub fn argv_new(region: String) -> Vec<String> {
+    let mut argv = aliyun::argv_new_base(region);
+
+    argv.push("Period".to_owned());
+    argv.push("15".to_owned());
+    argv.push("Metric".to_owned());
+
+    argv
+}
 
 pub fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>, set: F) {
     let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);

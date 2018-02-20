@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use super::base;
 use super::Ecs;
-use super::super::{DATA, BASESTAMP, INTERVAL};
+use super::super::DATA;
 
 pub struct Data;
 
@@ -16,16 +16,6 @@ impl DATA for Data {
     fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = base::argv_new(region);
         argv.push("net_tcpconnection".to_owned());
-
-        argv.push("StartTime".to_owned());
-        unsafe {
-            argv.push(BASESTAMP.to_string());
-        }
-
-        argv.push("EndTime".to_owned());
-        unsafe {
-            argv.push((BASESTAMP + INTERVAL).to_string());
-        }
 
         argv
     }

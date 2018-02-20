@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use super::base;
 use super::{Ecs, Inner};
-use super::super::{DATA, BASESTAMP, INTERVAL};
+use super::super::DATA;
 
 pub struct Data;
 
@@ -13,16 +13,6 @@ impl DATA for Data {
     fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = base::argv_new(region);
         argv.push("load_15m".to_owned());
-
-        argv.push("StartTime".to_owned());
-        unsafe {
-            argv.push(BASESTAMP.to_string());
-        }
-
-        argv.push("EndTime".to_owned());
-        unsafe {
-            argv.push((BASESTAMP + INTERVAL).to_string());
-        }
 
         argv
     }

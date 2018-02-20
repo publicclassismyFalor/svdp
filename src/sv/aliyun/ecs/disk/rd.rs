@@ -15,16 +15,6 @@ impl DATA for Data {
         let mut argv = base::argv_new(region);
         argv.push("disk_readbytes".to_owned());
 
-        argv.push("StartTime".to_owned());
-        unsafe {
-            argv.push(BASESTAMP.to_string());
-        }
-
-        argv.push("EndTime".to_owned());
-        unsafe {
-            argv.push((BASESTAMP + INTERVAL).to_string());
-        }
-
         argv
     }
 

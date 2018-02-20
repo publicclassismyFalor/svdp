@@ -26,39 +26,41 @@ pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNk
 pub static mut BASESTAMP: u64 = 0;
 pub const INTERVAL: u64 = 5 * 60 * 1000;
 
+pub fn argv_new_base(region: String) -> Vec<String> {
+    let mut argv = vec![
+        "-region".to_owned(),
+        region,
+        "-domain".to_owned(),
+        "metrics.aliyuncs.com".to_owned(),
+        "-apiName".to_owned(),
+        "QueryMetricList".to_owned(),
+        "-apiVersion".to_owned(),
+        "2017-03-01".to_owned(),
+        "Action".to_owned(),
+        "QueryMetricList".to_owned(),
+        "Project".to_owned(),
+        "acs_ecs_dashboard".to_owned(),
+        "Length".to_owned(),
+        "1000".to_owned(),
+    ];
+
+    argv.push("StartTime".to_owned());
+    unsafe {
+        argv.push(BASESTAMP.to_string());
+    }
+
+    argv.push("EndTime".to_owned());
+    unsafe {
+        argv.push((BASESTAMP + INTERVAL).to_string());
+    }
+
+    argv
+}
+
 pub trait DATA {
     type Holder;
 
-    fn argv_new_base(&self, metric: String, region: String, period: i32) -> Vec<String> {
-        let mut argv = vec![
-            "-region".to_owned(),
-            region,
-            "-domain".to_owned(),
-            "metrics.aliyuncs.com".to_owned(),
-            "-apiName".to_owned(),
-            "QueryMetricList".to_owned(),
-            "-apiVersion".to_owned(),
-            "2017-03-01".to_owned(),
-            "Action".to_owned(),
-            "QueryMetricList".to_owned(),
-            "Project".to_owned(),
-            "acs_ecs_dashboard".to_owned(),
-            "Length".to_owned(),
-            "1000".to_owned(),
-        ];
-
-        argv.push("StartTime".to_owned());
-        unsafe {
-            argv.push(BASESTAMP.to_string());
-        }
-
-        argv.push("EndTime".to_owned());
-        unsafe {
-            argv.push((BASESTAMP + INTERVAL).to_string());
-        }
-
-        argv
-    }
+    fn argv_new(&self, region: String) -> Vec<String>;
 
     fn get(&self, holder: Self::Holder, region: String) {
         let mut extra = self.argv_new(region);

@@ -1,13 +1,13 @@
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
-use super::base;
+//use super::base;
 use super::Slb;
 use super::super::{DATA, BASESTAMP, INTERVAL};
 
 pub struct Data;
 
-impl DATA for Data {
+//impl DATA for Data {
     //type Holder = Arc<Mutex<HashMap<u64, Slb>>>;
 
     //fn argv_new(&self, region: String) -> Vec<String> {
@@ -18,4 +18,4 @@ impl DATA for Data {
 
     //    super::insert(holder, data, setter);
     //}
-}
+//}

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use super::base;
 use super::{Ecs, Inner};
-use super::super::{DATA, BASESTAMP, INTERVAL};
+use super::super::DATA;
 
 pub struct Data;
 
@@ -11,11 +11,7 @@ impl DATA for Data {
     type Holder = Arc<Mutex<HashMap<u64, Ecs>>>;
 
     fn argv_new(&self, region: String) -> Vec<String> {
-        let mut argv = self.argv_new_base(region);
-
-        argv.push("Period".to_owned());
-        argv.push("15".to_owned());
-        argv.push("Metric".to_owned());
+        let mut argv = base::argv_new(region);
         argv.push("cpu_total".to_owned());
 
         argv
