@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
 
-use super::{DATA, PGINFO, BASESTAMP, INTERVAL, cmd_exec};
+use super::{DATA, PGINFO, BASESTAMP, INTERVAL};
 
 /* key: time_stamp */
 pub struct Slb {
@@ -91,7 +91,7 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Slb>>>, region: String) {
     if let Ok(pgconn) = Connection::connect(PGINFO, TlsMode::None) {
         for (ts, v) in holder.lock().unwrap().iter() {
             if let Err(e) = pgconn.execute(
-                "INSERT INTO sv_ecs VALUES ($1, $2)",
+                "INSERT INTO sv_slb VALUES ($1, $2)",
                 &[
                     &((ts / 1000) as i32),
                     &serde_json::to_value(&v.data).unwrap()

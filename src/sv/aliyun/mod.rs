@@ -112,8 +112,11 @@ pub fn go() {
     unsafe { BASESTAMP = ts_now() / 15000 * 15000 - INTERVAL; }
 
     let pgconn = Connection::connect(PGINFO, TlsMode::None).unwrap();
+    let tbsuffix = &["ecs", "slb", "rds", "redis", "memcache", "mongodb"];
 
-    pgconn.execute("CREATE TABLE IF NOT EXISTS sv_ecs (ts int, sv jsonb) PARTITION BY RANGE (ts)", &[]).unwrap();
+    for tbsuf in tbsuffix {
+        pgconn.execute(&format!("CREATE TABLE IF NOT EXISTS sv_{} (ts int, sv jsonb) PARTITION BY RANGE (ts)", tbsuf), &[]).unwrap();
+    }
 
     loop {
         let regions;
@@ -133,12 +136,15 @@ pub fn go() {
 
         let mut tbmark = basestamp / 1000 / 3600;
         while (5 + ts_now() / 1000 / 3600) > tbmark {
-            if let Err(e) = pgconn.execute(
-                &format!("CREATE TABLE IF NOT EXISTS sv_ecs_{} PARTITION OF sv_ecs FOR VALUES FROM ({}) TO ({})",
-                tbmark - 1,
-                (3600 * (tbmark - 1)) as i32,
-                (3600 * tbmark) as i32), &[]) {
-                eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e);
+            for tbsuf in tbsuffix {
+                if let Err(e) = pgconn.execute(
+                    &format!("CREATE TABLE IF NOT EXISTS sv_{}_{} PARTITION OF sv_ecs FOR VALUES FROM ({}) TO ({})",
+                    tbsuf,
+                    tbmark - 1,
+                    (3600 * (tbmark - 1)) as i32,
+                    (3600 * tbmark) as i32), &[]) {
+                    eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e);
+                }
             }
 
             tbmark += 1;
