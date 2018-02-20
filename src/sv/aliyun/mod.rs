@@ -22,7 +22,7 @@ pub const CMD: &str = "/tmp/aliyun_cmdb";
 pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
 
 pub static mut BASESTAMP: u64 = 0;
-pub const INTERVAL: u64 = 1 * 60 * 1000;
+pub const INTERVAL: u64 = 5 * 60 * 1000;
 
 pub trait DATA {
     type Holder;
@@ -47,7 +47,7 @@ pub fn go() {
                 regions = r;
             },
             None => {
-                eprintln!("!!! regions sync failed !!!");
+                eprintln!("[file: {}, line: {}] ==> !!! regions sync failed !!!", file!(), line!());
                 thread::sleep(Duration::from_secs(10));
                 continue;
             }
@@ -63,7 +63,7 @@ pub fn go() {
                 tbmark - 1,
                 (3600 * (tbmark - 1)) as i32,
                 (3600 * tbmark) as i32), &[]) {
-                eprintln!("ERR! ==> {}", e);
+                eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e);
             }
 
             tbmark += 1;

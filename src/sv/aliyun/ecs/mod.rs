@@ -156,7 +156,7 @@ fn get_meta <T: META> (holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String, t:
                 thread::spawn(move || {
                     extra_.push(page.to_string());
                     if let Ok(ret) = cmd_exec(extra_) {
-                        tx.send(ret).unwrap_or_else(|e| eprintln!("{}", e));
+                        tx.send(ret).unwrap_or_else(|e| eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e));
                     }
                 });
             };
@@ -284,11 +284,11 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
                     &((ts / 1000) as i32),
                     &serde_json::to_value(&v.data).unwrap()
                 ]) {
-                eprintln!("ERR! ==> {}", e);
+                eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e);
             }
         }
     } else {
-        eprintln!("ERR! ==> DB connect failed.");
+        eprintln!("[file: {}, line: {}] ==> DB connect failed.", file!(), line!());
     }
 }
 
