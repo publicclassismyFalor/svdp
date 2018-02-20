@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use ::serde_json;
 use serde_json::Value;
 
-use super::Ecs;
+use super::{Ecs, MSPERIOD};
 
 #[derive(Serialize, Deserialize)]
 pub struct NetIf {
@@ -60,7 +60,7 @@ fn insert<F: Fn(&mut NetIf, i32)>(holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: 
             } else { continue; }
 
             /* align with 15s */
-            if let Some(ecs) = holder.lock().unwrap().get_mut(&(ts / 15000 * 15000)) {
+            if let Some(ecs) = holder.lock().unwrap().get_mut(&(ts / MSPERIOD * MSPERIOD)) {
                 if let Some(inner) = ecs.data.get_mut(ecsid) {
                     if let Value::Number(ref v) = body[i]["Average"] {
                         if let Some(v) = v.as_u64() {

@@ -4,14 +4,14 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use super::{Ecs, Inner};
+use super::{Ecs, Inner, MSPERIOD};
 use ::sv::aliyun;
 
 pub fn argv_new(region: String) -> Vec<String> {
     let mut argv = aliyun::argv_new_base(region);
 
     argv.push("Period".to_owned());
-    argv.push("15".to_owned());
+    argv.push((MSPERIOD / 1000).to_string());
     argv.push("Metric".to_owned());
 
     argv
@@ -42,7 +42,7 @@ pub fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<u64, Ecs>>>, da
             } else { continue; }
 
             /* align with 15s */
-            if let Some(ecs) = holder.lock().unwrap().get_mut(&(ts / 15000 * 15000)) {
+            if let Some(ecs) = holder.lock().unwrap().get_mut(&(ts / MSPERIOD * MSPERIOD)) {
                 if let Some(mut inner) = ecs.data.get_mut(ecsid) {
                     if let Value::Number(ref v) = body[i]["Average"] {
                         if let Some(v) = v.as_f64() {

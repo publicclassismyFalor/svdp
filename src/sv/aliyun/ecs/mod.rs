@@ -20,6 +20,8 @@ use std::sync::{mpsc, Arc, Mutex};
 
 use super::{DATA, PGINFO, BASESTAMP, INTERVAL, cmd_exec};
 
+pub const MSPERIOD: u64 = 15000;  // ms period
+
 //enum DT {
 //    Ecs,
 //    Disk,
@@ -302,8 +304,8 @@ pub fn sv(regions: Vec<String>) {
     unsafe { ts = BASESTAMP; }
 
     /* Aliyun TimeStamp: (StartTime, EndTime] */
-    for i in 1..(INTERVAL / 15000 + 1) {
-        holder.insert(ts + i * 15000, Ecs::new());
+    for i in 1..(INTERVAL / MSPERIOD + 1) {
+        holder.insert(ts + i * MSPERIOD, Ecs::new());
     }
 
     let holder = Arc::new(Mutex::new(holder));

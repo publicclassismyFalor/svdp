@@ -5,7 +5,7 @@ use ::serde_json;
 use serde_json::Value;
 
 use super::base;
-use super::Ecs;
+use super::{MSPERIOD, Ecs};
 use super::super::DATA;
 
 pub struct Data;
@@ -50,7 +50,7 @@ impl DATA for Data {
                 } else { continue; }
 
                 /* align with 15s */
-                if let Some(ecs) = holder.lock().unwrap().get_mut(&(ts / 15000 * 15000)) {
+                if let Some(ecs) = holder.lock().unwrap().get_mut(&(ts / MSPERIOD * MSPERIOD)) {
                     if let Some(inner) = ecs.data.get_mut(ecsid) {
                         if let Value::Number(ref v) = body[i]["Average"] {
                             if let Some(v) = v.as_u64() {

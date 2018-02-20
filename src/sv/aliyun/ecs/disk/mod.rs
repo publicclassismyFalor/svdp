@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use super::base;
 //use super::{DT, META};
-use super::Ecs;
+use super::{Ecs, MSPERIOD};
 use super::super::{DATA, BASESTAMP, INTERVAL};
 
 pub mod rd;
@@ -104,16 +104,6 @@ impl DATA for Data {
         let mut argv = base::argv_new(region);
         argv.push("diskusage_utilization".to_owned());
 
-        argv.push("StartTime".to_owned());
-        unsafe {
-            argv.push(BASESTAMP.to_string());
-        }
-
-        argv.push("EndTime".to_owned());
-        unsafe {
-            argv.push((BASESTAMP + INTERVAL).to_string());
-        }
-
         argv
     }
 
@@ -155,7 +145,7 @@ fn insert<F: Fn(&mut Disk, i32)>(holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: V
             } else { continue; }
 
             /* align with 15s */
-            if let Some(ecs) = holder.lock().unwrap().get_mut(&(ts / 15000 * 15000)) {
+            if let Some(ecs) = holder.lock().unwrap().get_mut(&(ts / MSPERIOD * MSPERIOD)) {
                 if let Some(inner) = ecs.data.get_mut(ecsid) {
                     if let Value::Number(ref v) = body[i]["Average"] {
                         if let Some(v) = v.as_u64() {
