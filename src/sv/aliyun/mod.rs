@@ -136,9 +136,10 @@ pub fn go() {
         while (5 + ts_now() / 1000 / 3600) > tbmark {
             for tbsuf in tbsuffix {
                 if let Err(e) = pgconn.execute(
-                    &format!("CREATE TABLE IF NOT EXISTS sv_{}_{} PARTITION OF sv_ecs FOR VALUES FROM ({}) TO ({})",
+                    &format!("CREATE TABLE IF NOT EXISTS sv_{}_{} PARTITION OF sv_{} FOR VALUES FROM ({}) TO ({})",
                     tbsuf,
                     tbmark - 1,
+                    tbsuf,
                     (3600 * (tbmark - 1)) as i32,
                     (3600 * tbmark) as i32), &[]) {
                     eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e);
