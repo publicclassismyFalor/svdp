@@ -1,3 +1,5 @@
+mod base;
+
 mod rd;
 mod wr;
 mod rd_tps;
@@ -50,56 +52,56 @@ impl Inner {
 }
 
 fn get_data(holder: Arc<Mutex<HashMap<u64, Slb>>>, region: String) {
-//    let mut tids = vec![];
-//
-//    let h = Arc::clone(&holder);
-//    let r = region.clone();
-//    tids.push(thread::spawn(move || {
-//            rd::Data.get(h, r);
-//        }));
-//
-//    let h = Arc::clone(&holder);
-//    let r = region.clone();
-//    tids.push(thread::spawn(move || {
-//            wr::Data.get(h, r);
-//        }));
-//
-//    let h = Arc::clone(&holder);
-//    let r = region.clone();
-//    tids.push(thread::spawn(move || {
-//            rd_tps::Data.get(h, r);
-//        }));
-//
-//    let h = Arc::clone(&holder);
-//    let r = region.clone();
-//    tids.push(thread::spawn(move || {
-//            wr_tps::Data.get(h, r);
-//        }));
-//
-//    let h = Arc::clone(&holder);
-//    tids.push(thread::spawn(move || {
-//            conn::Data.get(h, region);
-//        }));
-//
-//    for tid in tids {
-//        tid.join().unwrap();
-//    }
-//
-//    /* write final result to DB */
-//    if let Ok(pgconn) = Connection::connect(PGINFO, TlsMode::None) {
-//        for (ts, v) in holder.lock().unwrap().iter() {
-//            if let Err(e) = pgconn.execute(
-//                "INSERT INTO sv_ecs VALUES ($1, $2)",
-//                &[
-//                    &((ts / 1000) as i32),
-//                    &serde_json::to_value(&v.data).unwrap()
-//                ]) {
-//                eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e);
-//            }
-//        }
-//    } else {
-//        eprintln!("[file: {}, line: {}] ==> DB connect failed.", file!(), line!());
-//    }
+    let mut tids = vec![];
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            rd::Data.get(h, r);
+        }));
+
+    //let h = Arc::clone(&holder);
+    //let r = region.clone();
+    //tids.push(thread::spawn(move || {
+    //        wr::Data.get(h, r);
+    //    }));
+
+    //let h = Arc::clone(&holder);
+    //let r = region.clone();
+    //tids.push(thread::spawn(move || {
+    //        rd_tps::Data.get(h, r);
+    //    }));
+
+    //let h = Arc::clone(&holder);
+    //let r = region.clone();
+    //tids.push(thread::spawn(move || {
+    //        wr_tps::Data.get(h, r);
+    //    }));
+
+    //let h = Arc::clone(&holder);
+    //tids.push(thread::spawn(move || {
+    //        conn::Data.get(h, region);
+    //    }));
+
+    for tid in tids {
+        tid.join().unwrap();
+    }
+
+    /* write final result to DB */
+    if let Ok(pgconn) = Connection::connect(PGINFO, TlsMode::None) {
+        for (ts, v) in holder.lock().unwrap().iter() {
+            if let Err(e) = pgconn.execute(
+                "INSERT INTO sv_ecs VALUES ($1, $2)",
+                &[
+                    &((ts / 1000) as i32),
+                    &serde_json::to_value(&v.data).unwrap()
+                ]) {
+                eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e);
+            }
+        }
+    } else {
+        eprintln!("[file: {}, line: {}] ==> DB connect failed.", file!(), line!());
+    }
 }
 
 /********************

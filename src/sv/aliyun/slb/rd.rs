@@ -1,21 +1,25 @@
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
-//use super::base;
+use super::base;
 use super::Slb;
 use super::super::{DATA, BASESTAMP, INTERVAL};
 
 pub struct Data;
 
-//impl DATA for Data {
-    //type Holder = Arc<Mutex<HashMap<u64, Slb>>>;
+impl DATA for Data {
+    type Holder = Arc<Mutex<HashMap<u64, Slb>>>;
 
-    //fn argv_new(&self, region: String) -> Vec<String> {
-    //}
+    fn argv_new(&self, region: String) -> Vec<String> {
+        let mut argv = base::argv_new(region);
+        argv.push("TrafficRXNew".to_owned());
 
-    //fn insert(&self, holder: &Self::Holder, data: Vec<u8>) {
-    //    let setter = |netif: &mut NetIf, v: i32| netif.rd = v / 8 / 1024;
+        argv
+    }
 
-    //    super::insert(holder, data, setter);
-    //}
-//}
+    fn insert(&self, holder: &Self::Holder, data: Vec<u8>) {
+        let setter = |inner: &mut super::Inner, v: i32| inner.rd = v / 8 / 1024;
+
+        base::insert(holder, data, setter);
+    }
+}

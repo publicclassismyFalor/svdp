@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use super::Disk;
 use super::super::base;
 use super::super::Ecs;
-use super::super::super::{DATA, BASESTAMP, INTERVAL};
+use super::super::super::DATA;
 
 pub struct Data;  /* IOps */
 
