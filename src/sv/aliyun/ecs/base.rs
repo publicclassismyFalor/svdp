@@ -6,28 +6,6 @@ use std::sync::{Arc, Mutex};
 
 use super::{Ecs, Inner};
 
-pub fn argv_new(region: String) -> Vec<String> {
-    vec![
-        "-region".to_owned(),
-        region,
-        "-domain".to_owned(),
-        "metrics.aliyuncs.com".to_owned(),
-        "-apiName".to_owned(),
-        "QueryMetricList".to_owned(),
-        "-apiVersion".to_owned(),
-        "2017-03-01".to_owned(),
-        "Action".to_owned(),
-        "QueryMetricList".to_owned(),
-        "Project".to_owned(),
-        "acs_ecs_dashboard".to_owned(),
-        "Period".to_owned(),
-        "15".to_owned(),
-        "Length".to_owned(),
-        "1000".to_owned(),
-        "Metric".to_owned(),
-    ]
-}
-
 pub fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>, set: F) {
     let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
     if Value::Null == v {

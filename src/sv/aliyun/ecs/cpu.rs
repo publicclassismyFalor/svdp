@@ -11,18 +11,12 @@ impl DATA for Data {
     type Holder = Arc<Mutex<HashMap<u64, Ecs>>>;
 
     fn argv_new(&self, region: String) -> Vec<String> {
-        let mut argv = base::argv_new(region);
+        let mut argv = self.argv_new_base(region);
+
+        argv.push("Period".to_owned());
+        argv.push("15".to_owned());
+        argv.push("Metric".to_owned());
         argv.push("cpu_total".to_owned());
-
-        argv.push("StartTime".to_owned());
-        unsafe {
-            argv.push(BASESTAMP.to_string());
-        }
-
-        argv.push("EndTime".to_owned());
-        unsafe {
-            argv.push((BASESTAMP + INTERVAL).to_string());
-        }
 
         argv
     }
