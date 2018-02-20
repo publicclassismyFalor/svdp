@@ -30,10 +30,6 @@ impl DATA for Data {
         argv
     }
 
-    fn get(&self, holder: Self::Holder, region: String) {
-        base::get(holder, region, Data);
-    }
-
     fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>) {
         let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
         if Value::Null == v {

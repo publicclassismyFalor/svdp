@@ -27,10 +27,6 @@ impl DATA for Data {
         argv
     }
 
-    fn get(&self, holder: Self::Holder, region: String) {
-        base::get(holder, region, Data);
-    }
-
     fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>) {
         let setter = |inner: &mut Inner, v: f64| inner.load5m = (v * 1000.0) as i32;
 

@@ -2,12 +2,9 @@ use ::serde_json;
 use serde_json::Value;
 
 use std::collections::HashMap;
-
-use std::thread;
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 
 use super::{Ecs, Inner};
-use super::super::{DATA, cmd_exec};
 
 pub fn argv_new(region: String) -> Vec<String> {
     vec![
@@ -29,48 +26,6 @@ pub fn argv_new(region: String) -> Vec<String> {
         "1000".to_owned(),
         "Metric".to_owned(),
     ]
-}
-
-pub fn get<T: DATA>(holder: <T as DATA>::Holder, region: String, me: T) {
-    let mut extra = me.argv_new(region);
-
-    let (tx, rx) = mpsc::channel();
-
-    thread::spawn(move || {
-        if let Ok(ret) = cmd_exec(extra.clone()) {
-            let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
-            if Value::Null == v {
-                return;
-            }
-
-            tx.send(ret).unwrap();
-
-            if let Value::String(ref cursor) = v["Cursor"] {
-                extra.push("Cursor".to_owned());
-                extra.push((*cursor).clone());
-
-                while let Ok(ret) = cmd_exec(extra.clone()) {
-                    let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
-                    if Value::Null == v {
-                        return;
-                    }
-
-                    tx.send(ret).unwrap();
-
-                    if let Value::String(ref cursor) = v["Cursor"] {
-                        extra.pop();
-                        extra.push((*cursor).clone());
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-    });
-
-    for r in rx {
-        me.insert(&holder, r);
-    }
 }
 
 pub fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>, set: F) {

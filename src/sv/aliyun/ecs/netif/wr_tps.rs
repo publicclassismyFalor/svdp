@@ -28,10 +28,6 @@ impl DATA for Data {
         argv
     }
 
-    fn get(&self, holder: Self::Holder, region: String) {
-        base::get(holder, region, Data);
-    }
-
     fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>) {
         let setter = |netif: &mut NetIf, v: i32| netif.wrtps = v;
 

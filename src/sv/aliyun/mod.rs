@@ -9,8 +9,10 @@ use ::std;
 use std::thread;
 use std::time::Duration;
 
-use std::process::Command;
 use std::io::Error;
+use std::process::Command;
+
+use std::sync::mpsc;
 
 use ::serde_json;
 use serde_json::Value;
@@ -28,8 +30,49 @@ pub trait DATA {
     type Holder;
 
     fn argv_new(&self, region: String) -> Vec<String>;
-    fn get(&self, holder: Self::Holder, region: String);
     fn insert(&self, holder: &Self::Holder, data: Vec<u8>);
+
+    fn get(&self, holder: Self::Holder, region: String) {
+        let mut extra = self.argv_new(region);
+
+        let (tx, rx) = mpsc::channel();
+
+        thread::spawn(move || {
+            if let Ok(ret) = cmd_exec(extra.clone()) {
+                let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
+                if Value::Null == v {
+                    return;
+                }
+
+                tx.send(ret).unwrap();
+
+                if let Value::String(ref cursor) = v["Cursor"] {
+                    extra.push("Cursor".to_owned());
+                    extra.push((*cursor).clone());
+
+                    while let Ok(ret) = cmd_exec(extra.clone()) {
+                        let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
+                        if Value::Null == v {
+                            return;
+                        }
+
+                        tx.send(ret).unwrap();
+
+                        if let Value::String(ref cursor) = v["Cursor"] {
+                            extra.pop();
+                            extra.push((*cursor).clone());
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
+        for r in rx {
+            self.insert(&holder, r);
+        }
+    }
 }
 
 pub fn go() {
