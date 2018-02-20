@@ -2,8 +2,8 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
 use super::base;
-use super::Slb;
-use super::super::{DATA, BASESTAMP, INTERVAL};
+use super::{Slb, Inner};
+use super::super::DATA;
 
 pub struct Data;
 
@@ -18,7 +18,7 @@ impl DATA for Data {
     }
 
     fn insert(&self, holder: &Self::Holder, data: Vec<u8>) {
-        let setter = |inner: &mut super::Inner, v: i32| inner.rd = v / 8 / 1024;
+        let setter = |inner: &mut Inner, v: i32| inner.rd = v / 8 / 1024;
 
         base::insert(holder, data, setter);
     }

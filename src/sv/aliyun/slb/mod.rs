@@ -7,19 +7,20 @@ mod wr_tps;
 mod conn;  /* tcp conn cnt */
 
 use ::serde_json;
-use serde_json::Value;
 use postgres::{Connection, TlsMode};
 
 use std::collections::HashMap;
 
 use std::thread;
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 
 use super::{DATA, PGINFO, BASESTAMP, INTERVAL};
 
+pub const MSPERIOD: u64 = 60000;  // ms period
+
 /* key: time_stamp */
 pub struct Slb {
-    data: HashMap<String, Inner>,  /* K: instance_id, V: Supervisor Data */
+    data: HashMap<[String; 2], Inner>,  /* K: [instance_id + vip], V: Supervisor Data */
 }
 
 #[derive(Serialize, Deserialize)]
@@ -107,15 +108,15 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Slb>>>, region: String) {
 /********************
  * Public InterFace *
  ********************/
-pub fn sv(regions: Vec<String>) {
+pub fn sv(_regions: Vec<String>) {
     let mut holder= HashMap::new();
 
     let ts;
     unsafe { ts = BASESTAMP; }
 
     /* Aliyun TimeStamp: (StartTime, EndTime] */
-    for i in 1..(INTERVAL / 60000 + 1) {
-        holder.insert(ts + i * 60000, Slb::new());
+    for i in 1..(INTERVAL / MSPERIOD + 1) {
+        holder.insert(ts + i * MSPERIOD, Slb::new());
     }
 
     let holder = Arc::new(Mutex::new(holder));

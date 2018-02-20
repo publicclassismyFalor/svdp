@@ -38,8 +38,6 @@ pub fn argv_new_base(region: String) -> Vec<String> {
         "2017-03-01".to_owned(),
         "Action".to_owned(),
         "QueryMetricList".to_owned(),
-        "Project".to_owned(),
-        "acs_ecs_dashboard".to_owned(),
         "Length".to_owned(),
         "1000".to_owned(),
     ];

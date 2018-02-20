@@ -7,7 +7,7 @@ use serde_json::Value;
 use super::base;
 //use super::{DT, META};
 use super::{Ecs, MSPERIOD};
-use super::super::{DATA, BASESTAMP, INTERVAL};
+use super::super::DATA;
 
 pub mod rd;
 pub mod wr;
