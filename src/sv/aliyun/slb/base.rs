@@ -31,28 +31,28 @@ pub fn insert<F: Fn(&mut Inner, i32)>(holder: &Arc<Mutex<HashMap<u64, Slb>>>, da
             break;
         } else {
             let slbid;
-            let ts;
-            let ip;
-
             if let Value::String(ref id) = body[i]["instanceId"] {
                 slbid = id;
             } else { continue; }
 
+            let ts;
             if let Value::Number(ref t) = body[i]["timestamp"] {
                 if let Some(t) = t.as_u64() {
                     ts = t;
                 } else { continue; }
             } else { continue; }
 
-            if let Value::String(ref ipaddr) = body[i]["vip"] {
-                ip = ipaddr;
-            } else { continue; }
+            //let ip;
+            //if let Value::String(ref ipaddr) = body[i]["vip"] {
+            //    ip = ipaddr;
+            //} else { continue; }
 
             /* align with 60s */
             if let Some(slb) = holder.lock().unwrap().get_mut(&(ts / MSPERIOD * MSPERIOD)) {
                 if let Value::Number(ref v) = body[i]["Average"] {
                     if let Some(v) = v.as_u64() {
-                        set(slb.data.entry([slbid.to_owned(), ip.to_owned()]).or_insert(Inner::new()), v as i32);
+                        //set(slb.data.entry([slbid.to_owned(), ip.to_owned()]).or_insert(Inner::new()), v as i32);
+                        set(slb.data.entry(slbid.to_owned()).or_insert(Inner::new()), v as i32);
                     } else { continue; }
                 } else { continue; }
             }

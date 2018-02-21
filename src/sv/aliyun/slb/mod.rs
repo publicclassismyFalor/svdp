@@ -20,7 +20,7 @@ pub const MSPERIOD: u64 = 60000;  // ms period
 
 /* key: time_stamp */
 pub struct Slb {
-    data: HashMap<[String; 2], Inner>,  /* K: [instance_id + vip], V: Supervisor Data */
+    data: HashMap<String, Inner>,  /* K: instance_id, V: Supervisor Data */
 }
 
 #[derive(Serialize, Deserialize)]

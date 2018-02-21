@@ -113,7 +113,7 @@ pub fn go() {
     let tbsuffix = &["ecs", "slb", "rds", "redis", "memcache", "mongodb"];
 
     for tbsuf in tbsuffix {
-        pgconn.execute(&format!("CREATE TABLE IF NOT EXISTS sv_{} (ts int PRIMARY KEY, sv jsonb) PARTITION BY RANGE (ts)", tbsuf), &[]).unwrap();
+        pgconn.execute(&format!("CREATE TABLE IF NOT EXISTS sv_{} (ts int, sv jsonb) PARTITION BY RANGE (ts)", tbsuf), &[]).unwrap();
     }
 
     loop {
@@ -149,7 +149,11 @@ pub fn go() {
             tbmark += 1;
         }
 
-        while ts_now() >= (basestamp + INTERVAL) {
+        /*
+         * The monitoring data of the Aliyun is not written in real time,
+         * need a double delay interval
+         */
+        while ts_now() >= (basestamp + 2 * INTERVAL) {
             let mut tids = vec![];
 
             let r = regions.clone();
