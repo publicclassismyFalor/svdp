@@ -18,7 +18,7 @@ impl DATA for Data {
     }
 
     fn insert(&self, holder: &Self::Holder, data: Vec<u8>) {
-        let setter = |inner: &mut Inner, v: i32| inner.rd = v / 8 / 1024;
+        let setter = |inner: &mut Inner, v: i32| inner.wr = v / 8 / 1024;
 
         base::insert(holder, data, setter);
     }
