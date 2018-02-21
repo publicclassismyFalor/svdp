@@ -61,28 +61,28 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Slb>>>, region: String) {
             rd::Data.get(h, r);
         }));
 
-    //let h = Arc::clone(&holder);
-    //let r = region.clone();
-    //tids.push(thread::spawn(move || {
-    //        wr::Data.get(h, r);
-    //    }));
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            wr::Data.get(h, r);
+        }));
 
-    //let h = Arc::clone(&holder);
-    //let r = region.clone();
-    //tids.push(thread::spawn(move || {
-    //        rd_tps::Data.get(h, r);
-    //    }));
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            rd_tps::Data.get(h, r);
+        }));
 
-    //let h = Arc::clone(&holder);
-    //let r = region.clone();
-    //tids.push(thread::spawn(move || {
-    //        wr_tps::Data.get(h, r);
-    //    }));
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            wr_tps::Data.get(h, r);
+        }));
 
-    //let h = Arc::clone(&holder);
-    //tids.push(thread::spawn(move || {
-    //        conn::Data.get(h, region);
-    //    }));
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            conn::Data.get(h, region);
+        }));
 
     for tid in tids {
         tid.join().unwrap();
