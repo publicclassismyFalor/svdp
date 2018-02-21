@@ -18,7 +18,7 @@ impl DATA for Data {
     }
 
     fn insert(&self, holder: &Self::Holder, data: Vec<u8>) {
-        let setter = |inner: &mut Inner, v: f32| inner.cpu_rate = (v * 10.0) as i16;  //
+        let setter = |inner: &mut Inner, v: f64| inner.cpu_rate = (v * 10.0) as i16;  //
 
         base::insert(holder, data, setter);
     }

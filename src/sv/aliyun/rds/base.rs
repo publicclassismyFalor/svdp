@@ -19,7 +19,7 @@ pub fn argv_new(region: String) -> Vec<String> {
     argv
 }
 
-pub fn insert<F: Fn(&mut Inner, f32)>(holder: &Arc<Mutex<HashMap<u64, Rds>>>, data: Vec<u8>, set: F) {
+pub fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<u64, Rds>>>, data: Vec<u8>, set: F) {
     let v: Value = serde_json::from_slice(&data).unwrap_or(Value::Null);
     if Value::Null == v {
         return;
@@ -45,8 +45,8 @@ pub fn insert<F: Fn(&mut Inner, f32)>(holder: &Arc<Mutex<HashMap<u64, Rds>>>, da
             /* align with 60s */
             if let Some(rds) = holder.lock().unwrap().get_mut(&(ts / MSPERIOD * MSPERIOD)) {
                 if let Value::Number(ref v) = body[i]["Average"] {
-                    if let Some(v) = v.as_u64() {
-                        set(rds.data.entry(rdsid.to_owned()).or_insert(Inner::new()), v as f32);
+                    if let Some(v) = v.as_f64() {  //
+                        set(rds.data.entry(rdsid.to_owned()).or_insert(Inner::new()), v);
                     } else { continue; }
                 } else { continue; }
             }
