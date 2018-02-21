@@ -28,8 +28,8 @@ pub struct Inner {
     cpu_rate: i16,
     mem_rate: i16,
     conn_rate: i16,
-    rd_rate: i16,
-    wr_rate: i16,
+    rd: i32,
+    wr: i32,
 }
 
 impl Memcache {
@@ -46,8 +46,8 @@ impl Inner {
             cpu_rate: 0,
             mem_rate: 0,
             conn_rate: 0,
-            rd_rate: 0,
-            wr_rate: 0,
+            rd: 0,
+            wr: 0,
         }
     }
 }

@@ -5,7 +5,8 @@ mod mem;
 mod disk;
 mod disk_tps;
 mod conn;
-mod delay;
+mod rd;
+mod wr;
 
 use ::serde_json;
 use postgres::{Connection, TlsMode};
@@ -17,10 +18,10 @@ use std::sync::{Arc, Mutex};
 
 use super::{DATA, PGINFO, BASESTAMP, INTERVAL};
 
-pub const MSPERIOD: u64 = 300000;  // ms period
+pub const MSPERIOD: u64 = 300000;  //
 
 /* key: time_stamp */
-pub struct Rds {
+pub struct MongoDB {
     data: HashMap<String, Inner>,  /* K: instance_id, V: Supervisor Data */
 }
 
@@ -28,17 +29,18 @@ pub struct Rds {
 pub struct Inner {
     cpu_rate: i16,
     mem_rate: i16,
-    disk_rate: i16,
-
-    disktps_rate: i16,  // disk io usage percent: in + out
     conn_rate: i16,
 
-    delay: i16,  // unit: second
+    disk_rate: i16,
+    disktps_rate: i16,
+
+    rd: i32,
+    wr: i32,
 }
 
-impl Rds {
-    fn new() -> Rds {
-        Rds {
+impl MongoDB {
+    fn new() -> MongoDB {
+        MongoDB {
             data: HashMap::new(),
         }
     }
@@ -49,50 +51,57 @@ impl Inner {
         Inner {
             cpu_rate: 0,
             mem_rate: 0,
+            conn_rate: 0,
             disk_rate: 0,
             disktps_rate: 0,
-            conn_rate: 0,
-            delay: 0,
+            rd: 0,
+            wr: 0,
         }
     }
 }
 
-fn get_data(holder: Arc<Mutex<HashMap<u64, Rds>>>, region: String) {
+fn get_data(holder: Arc<Mutex<HashMap<u64, MongoDB>>>, region: String) {
     let mut tids = vec![];
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            cpu::Data.get(h, r);
+            cpu::Data.get(h, r);  //
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            mem::Data.get(h, r);
+            mem::Data.get(h, r);  //
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            disk::Data.get(h, r);
+            disk::Data.get(h, r);  //
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            disk_tps::Data.get(h, r);
+            disk_tps::Data.get(h, r);  //
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            conn::Data.get(h, r);
+            conn::Data.get(h, r);  //
+        }));
+
+    let h = Arc::clone(&holder);
+    let r = region.clone();
+    tids.push(thread::spawn(move || {
+            rd::Data.get(h, r);  //
         }));
 
     let h = Arc::clone(&holder);
     tids.push(thread::spawn(move || {
-            delay::Data.get(h, region);
+            wr::Data.get(h, region);  //
         }));
 
     for tid in tids {
@@ -103,7 +112,7 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Rds>>>, region: String) {
     if let Ok(pgconn) = Connection::connect(PGINFO, TlsMode::None) {
         for (ts, v) in holder.lock().unwrap().iter() {
             if let Err(e) = pgconn.execute(
-                "INSERT INTO sv_rds VALUES ($1, $2)",
+                "INSERT INTO sv_mongodb VALUES ($1, $2)",
                 &[
                     &((ts / 1000) as i32),
                     &serde_json::to_value(&v.data).unwrap()
@@ -127,7 +136,7 @@ pub fn sv(_regions: Vec<String>) {
 
     /* Aliyun TimeStamp: (StartTime, EndTime] */
     for i in 1..(INTERVAL / MSPERIOD + 1) {
-        holder.insert(ts + i * MSPERIOD, Rds::new());
+        holder.insert(ts + i * MSPERIOD, MongoDB::new());
     }
 
     let holder = Arc::new(Mutex::new(holder));

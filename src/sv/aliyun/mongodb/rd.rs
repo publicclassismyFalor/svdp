@@ -2,13 +2,13 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
 use super::base;
-use super::{Redis, Inner};
+use super::{MongoDB, Inner};
 use super::super::DATA;
 
 pub struct Data;
 
 impl DATA for Data {
-    type Holder = Arc<Mutex<HashMap<u64, Redis>>>;
+    type Holder = Arc<Mutex<HashMap<u64, MongoDB>>>;
 
     fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = base::argv_new(region);
@@ -18,7 +18,7 @@ impl DATA for Data {
     }
 
     fn insert(&self, holder: &Self::Holder, data: Vec<u8>) {
-        let setter = |inner: &mut Inner, v: f64| inner.rd = (v as i32) / 8 / 1024;  //
+        let setter = |inner: &mut Inner, v: f64| inner.rd = v as i32;  //
 
         base::insert(holder, data, setter);
     }
