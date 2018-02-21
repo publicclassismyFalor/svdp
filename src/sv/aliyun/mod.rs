@@ -107,13 +107,13 @@ pub trait DATA {
 
 pub fn go() {
     let ts_now = || 1000 * std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-    unsafe { BASESTAMP = ts_now() / 15000 * 15000 - INTERVAL; }
+    unsafe { BASESTAMP = ts_now() / INTERVAL * INTERVAL - INTERVAL; }
 
     let pgconn = Connection::connect(PGINFO, TlsMode::None).unwrap();
     let tbsuffix = &["ecs", "slb", "rds", "redis", "memcache", "mongodb"];
 
     for tbsuf in tbsuffix {
-        pgconn.execute(&format!("CREATE TABLE IF NOT EXISTS sv_{} (ts int, sv jsonb) PARTITION BY RANGE (ts)", tbsuf), &[]).unwrap();
+        pgconn.execute(&format!("CREATE TABLE IF NOT EXISTS sv_{} (ts int PRIMARY KEY, sv jsonb) PARTITION BY RANGE (ts)", tbsuf), &[]).unwrap();
     }
 
     loop {
