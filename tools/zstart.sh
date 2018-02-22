@@ -97,8 +97,8 @@ ${zPgBinPath}/createdb -O `whoami` svdp
 # (echo -1000 > /proc/$pid/oom_score_adj; echo -17 > /proc/$pid/oom_adj) 2>${zPgDataPath}/log
 
 # 借助 nohup 进入守护进程模式
-cd ${zProjPath}
 killall svdp
+cd ${zProjPath}/conf
 nohup cargo run --release &
 if [ 0 -ne $? ]; then
     printf "\033[31;01msvdp start failed !!\033[00m\n"

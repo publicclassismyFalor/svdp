@@ -1,0 +1,2 @@
+pg_login_url = "postgres://fh@%2Fhome%2Ffh/svdp"
+sv_serv_addr = "[::1]:30000"
