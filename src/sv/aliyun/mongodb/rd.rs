@@ -12,13 +12,13 @@ impl DATA for Data {
 
     fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = base::argv_new(region);
-        argv.push("IntranetIn".to_owned());  //
+        argv.push("IntranetIn".to_owned());
 
         argv
     }
 
     fn insert(&self, holder: &Self::Holder, data: Vec<u8>) {
-        let setter = |inner: &mut Inner, v: f64| inner.rd = v as i32;  //
+        let setter = |inner: &mut Inner, v: f64| inner.rd = v as i32;
 
         base::insert(holder, data, setter);
     }

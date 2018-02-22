@@ -4,14 +4,14 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use super::{Ecs, Inner, MSPERIOD};
+use super::{Ecs, Inner, MSPERIOD, ACSITEM};
 use ::sv::aliyun;
 
 pub fn argv_new(region: String) -> Vec<String> {
     let mut argv = aliyun::argv_new_base(region);
 
     argv.push("Project".to_owned());
-    argv.push("acs_ecs_dashboard".to_owned());
+    argv.push(ACSITEM.to_owned());
     argv.push("Period".to_owned());
     argv.push((MSPERIOD / 1000).to_string());
     argv.push("Metric".to_owned());

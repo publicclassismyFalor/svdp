@@ -16,7 +16,8 @@ use std::sync::{Arc, Mutex};
 
 use super::{DATA, PGINFO, BASESTAMP, INTERVAL};
 
-pub const MSPERIOD: u64 = 60000;  //
+pub const ACSITEM: &str = "acs_memcache";
+pub const MSPERIOD: u64 = 60000;
 
 /* key: time_stamp */
 pub struct Memcache {
@@ -58,30 +59,30 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Memcache>>>, region: String) {
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            cpu::Data.get(h, r);  //
+            cpu::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            mem::Data.get(h, r);  //
+            mem::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            conn::Data.get(h, r);  //
+            conn::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            rd::Data.get(h, r);  //
+            rd::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     tids.push(thread::spawn(move || {
-            wr::Data.get(h, region);  //
+            wr::Data.get(h, region);
         }));
 
     for tid in tids {

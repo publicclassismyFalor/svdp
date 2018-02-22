@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex};
 
 use super::{DATA, PGINFO, BASESTAMP, INTERVAL};
 
+pub const ACSITEM: &str = "acs_slb_dashboard";
 pub const MSPERIOD: u64 = 60000;  // ms period
 
 /* key: time_stamp */

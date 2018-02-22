@@ -4,14 +4,14 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use super::{MongoDB, Inner, MSPERIOD};
+use super::{MongoDB, Inner, MSPERIOD, ACSITEM};
 use ::sv::aliyun;
 
 pub fn argv_new(region: String) -> Vec<String> {
     let mut argv = aliyun::argv_new_base(region);
 
     argv.push("Project".to_owned());
-    argv.push("acs_mongodb".to_owned());  //
+    argv.push(ACSITEM.to_owned());
     argv.push("Period".to_owned());
     argv.push((MSPERIOD / 1000).to_string());
     argv.push("Metric".to_owned());
@@ -45,7 +45,7 @@ pub fn insert<F: Fn(&mut Inner, f64)>(holder: &Arc<Mutex<HashMap<u64, MongoDB>>>
             /* align with 60s */
             if let Some(mongodb) = holder.lock().unwrap().get_mut(&(ts / MSPERIOD * MSPERIOD)) {
                 if let Value::Number(ref v) = body[i]["Average"] {
-                    if let Some(v) = v.as_f64() {  //
+                    if let Some(v) = v.as_f64() {
                         set(mongodb.data.entry(mongodbid.to_owned()).or_insert(Inner::new()), v);
                     } else { continue; }
                 } else { continue; }
