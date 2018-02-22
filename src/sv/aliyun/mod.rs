@@ -107,7 +107,7 @@ pub trait DATA {
 
 pub fn go() {
     let ts_now = || 1000 * std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-    unsafe { BASESTAMP = ts_now() / INTERVAL * INTERVAL - INTERVAL; }
+    unsafe { BASESTAMP = ts_now() / INTERVAL * INTERVAL - 2 * INTERVAL; }
 
     let pgconn = Connection::connect(PGINFO, TlsMode::None).unwrap();
     let tbsuffix = &["ecs", "slb", "rds", "redis", "memcache", "mongodb"];
@@ -142,6 +142,14 @@ pub fn go() {
                     tbsuf,
                     (3600 * (tbmark - 1)) as i32,
                     (3600 * tbmark) as i32), &[]) {
+                    eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e);
+                }
+
+                /* delete tables created before 10 days ago */
+                if let Err(e) = pgconn.execute(
+                    &format!("DROP TABLE IF EXISTS sv_{}_{}",
+                    tbsuf,
+                    tbmark - 1 - 240), &[]) {
                     eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e);
                 }
             }
@@ -182,7 +190,7 @@ pub fn go() {
             unsafe { BASESTAMP = basestamp; }
         }
 
-        thread::sleep(Duration::from_secs(INTERVAL));
+        thread::sleep(Duration::from_millis(INTERVAL));
     }
 }
 
