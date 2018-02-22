@@ -26,6 +26,6 @@ impl DATA for Data {
 const ME: &str = "IntranetOut";
 
 fn setter(inner: &mut Inner, v: f64) {
-    inner.rd = (v as i32) / 8 / 1024;
+    inner.wr = (v as i32) / 8 / 1024;
 }
 /////////////////////////////////////////////////////
