@@ -3,6 +3,7 @@ extern crate lazy_static;
 
 extern crate serde;
 extern crate serde_json;
+
 #[macro_use]
 extern crate serde_derive;
 
@@ -14,7 +15,8 @@ mod dp;
 
 use std::thread;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Error};
+use std::net::{TcpListener, TcpStream};
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -47,7 +49,22 @@ fn conf_parse() -> Config {
 
 /* json rpc service on tcp */
 fn jsonrpc_serv() {
+    let listener = TcpListener::bind(&CONF.sv_serv_addr).unwrap_or_else(|e| {
+        eprintln!("[{}, {}] ==> {}", file!(), line!(), e);
+        std::process::exit(1);
+    });
+
+    for stream in listener.incoming() {
+        // TODO: use thread pool
+        worker(stream);
+    }
 }
+
+fn worker(stream: Result<TcpStream, Error>) {
+    // TODO
+}
+
+
 
 
 pub fn run() {
