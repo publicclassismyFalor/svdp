@@ -6,6 +6,9 @@ extern crate postgres;
 #[macro_use]
 extern crate serde_derive;
 
+#[macro_use]
+extern crate lazy_static;
+
 mod sv;
 mod dp;
 

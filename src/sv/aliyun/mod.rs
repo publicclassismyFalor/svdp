@@ -7,7 +7,6 @@ mod mongodb;
 
 use ::std;
 use std::env;
-use std::mem;
 use std::thread;
 use std::time::Duration;
 
@@ -20,13 +19,18 @@ use ::serde_json;
 use serde_json::Value;
 use postgres::{Connection, TlsMode};
 
-pub static mut PGINFO: &str = "";
-
 pub const CMD: &str = "/tmp/aliyun_cmdb";
 pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
 
 pub static mut BASESTAMP: u64 = 0;
 pub const INTERVAL: u64 = 15 * 60 * 1000;
+
+lazy_static! {
+    pub static ref PGINFO: String = {
+        let user = env::var("USER").unwrap();
+        format!("postgres://{}@%2Fhome%2F{}/svdp", user, user)
+    };
+}
 
 pub fn argv_new_base(region: String) -> Vec<String> {
     let mut argv = vec![
@@ -107,23 +111,11 @@ pub trait DATA {
     fn insert(&self, holder: &Self::Holder, data: Vec<u8>);
 }
 
-fn get_pginfo() {
-    let user = env::var("USER").unwrap();
-    let pginfo = &format!("postgres://{}@%2Fhome%2F{}/svdp", user, user);
-    let p: *const String = pginfo;
-    mem::forget(pginfo);
-    unsafe { PGINFO = &*p; }
-}
-
 pub fn go() {
-    get_pginfo();
-
     let ts_now = || 1000 * std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
     unsafe { BASESTAMP = ts_now() / INTERVAL * INTERVAL - 2 * INTERVAL; }
 
-    let pginfo;
-    unsafe { pginfo = PGINFO; }
-    let pgconn = Connection::connect(pginfo, TlsMode::None).unwrap();
+    let pgconn = Connection::connect(PGINFO.as_str(), TlsMode::None).unwrap();
 
     let tbsuffix = &["ecs", "slb", "rds", "redis", "memcache", "mongodb"];
 
