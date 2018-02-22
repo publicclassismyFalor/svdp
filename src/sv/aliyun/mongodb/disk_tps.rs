@@ -26,6 +26,6 @@ impl DATA for Data {
 const ME: &str = "IOPSUtilization";
 
 fn setter(inner: &mut Inner, v: f64) {
-    inner.disktps_rate = (v * 10.0) as i16;
+    inner.disktps_ratio = (v * 10.0) as i16;
 }
 /////////////////////////////////////////////////////

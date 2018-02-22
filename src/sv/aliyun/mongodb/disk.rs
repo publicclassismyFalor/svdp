@@ -26,6 +26,6 @@ impl DATA for Data {
 const ME: &str = "DiskUtilization";
 
 fn setter(inner: &mut Inner, v: f64) {
-    inner.disk_rate = (v * 10.0) as i16;
+    inner.disk_ratio = (v * 10.0) as i16;
 }
 /////////////////////////////////////////////////////

@@ -27,12 +27,12 @@ pub struct Rds {
 
 #[derive(Serialize, Deserialize)]
 pub struct Inner {
-    cpu_rate: i16,
-    mem_rate: i16,
-    disk_rate: i16,
+    cpu_ratio: i16,
+    mem_ratio: i16,
+    disk_ratio: i16,
 
-    disktps_rate: i16,  // disk io usage percent: in + out
-    conn_rate: i16,
+    disktps_ratio: i16,  // disk io usage percent: in + out
+    conn_ratio: i16,
 
     delay: i16,  // unit: second
 }
@@ -48,11 +48,11 @@ impl Rds {
 impl Inner {
     fn new() -> Inner {
         Inner {
-            cpu_rate: 0,
-            mem_rate: 0,
-            disk_rate: 0,
-            disktps_rate: 0,
-            conn_rate: 0,
+            cpu_ratio: 0,
+            mem_ratio: 0,
+            disk_ratio: 0,
+            disktps_ratio: 0,
+            conn_ratio: 0,
             delay: 0,
         }
     }

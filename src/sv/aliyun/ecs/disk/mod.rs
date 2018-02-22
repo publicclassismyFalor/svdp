@@ -16,7 +16,7 @@ pub mod wr_tps;
 
 #[derive(Serialize, Deserialize)]
 pub struct Disk {
-    pub rate: i32,  /* usage percent */
+    pub ratio: i32,  /* usage percent */
 
     pub rd: i32,  /* kbytes */
     pub wr: i32,
@@ -27,7 +27,7 @@ pub struct Disk {
 impl Disk {
     fn new() -> Disk {
         Disk {
-            rate: 0,
+            ratio: 0,
             rd: 0,
             wr: 0,
             rdtps: 0,
@@ -95,7 +95,7 @@ impl Disk {
 //    }
 //}
 
-pub struct Data;  /* disk rate */
+pub struct Data;  /* disk ratio */
 
 impl DATA for Data {
     type Holder = Arc<Mutex<HashMap<u64, Ecs>>>;
@@ -108,7 +108,7 @@ impl DATA for Data {
     }
 
     fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>) {
-        let setter = |disk: &mut Disk, v: i32| disk.rate = v;
+        let setter = |disk: &mut Disk, v: i32| disk.ratio = v;
 
         insert(holder, data, setter);
     }

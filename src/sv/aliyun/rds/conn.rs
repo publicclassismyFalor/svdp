@@ -26,6 +26,6 @@ impl DATA for Data {
 const ME: &str = "ConnectionUsage";
 
 fn setter(inner: &mut Inner, v: f64) {
-    inner.conn_rate = (v * 10.0) as i16;
+    inner.conn_ratio = (v * 10.0) as i16;
 }
 /////////////////////////////////////////////////////

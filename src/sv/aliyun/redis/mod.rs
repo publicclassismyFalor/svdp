@@ -26,9 +26,9 @@ pub struct Redis {
 
 #[derive(Serialize, Deserialize)]
 pub struct Inner {
-    cpu_rate: i16,
-    mem_rate: i16,
-    conn_rate: i16,
+    cpu_ratio: i16,
+    mem_ratio: i16,
+    conn_ratio: i16,
     rd: i32,
     wr: i32,
 }
@@ -44,9 +44,9 @@ impl Redis {
 impl Inner {
     fn new() -> Inner {
         Inner {
-            cpu_rate: 0,
-            mem_rate: 0,
-            conn_rate: 0,
+            cpu_ratio: 0,
+            mem_ratio: 0,
+            conn_ratio: 0,
             rd: 0,
             wr: 0,
         }

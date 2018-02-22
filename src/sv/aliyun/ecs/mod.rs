@@ -37,8 +37,8 @@ pub struct Ecs {
 
 #[derive(Serialize, Deserialize)]
 pub struct Inner {
-    cpu_rate: i16,
-    mem_rate: i16,
+    cpu_ratio: i16,
+    mem_ratio: i16,
     load5m: i32,
     load15m: i32,
     tcp: i32,  /* tcp conn cnt */
@@ -67,8 +67,8 @@ impl Ecs {
 impl Inner {
     fn new() -> Inner {
         Inner {
-            cpu_rate: 0,
-            mem_rate: 0,
+            cpu_ratio: 0,
+            mem_ratio: 0,
             load5m: 0,
             load15m: 0,
             tcp: 0,

@@ -26,6 +26,6 @@ impl DATA for Data {
 const ME: &str = "CpuUsage";
 
 fn setter(inner: &mut Inner, v: f64) {
-    inner.cpu_rate = (v * 10.0) as i16;
+    inner.cpu_ratio = (v * 10.0) as i16;
 }
 /////////////////////////////////////////////////////

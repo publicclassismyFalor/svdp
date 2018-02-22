@@ -26,6 +26,6 @@ impl DATA for Data {
 const ME: &str = "memory_usedutilization";
 
 fn setter(inner: &mut Inner, v: f64) {
-    inner.mem_rate = (v * 10.0) as i16;
+    inner.mem_ratio = (v * 10.0) as i16;
 }
 /////////////////////////////////////////////////////
