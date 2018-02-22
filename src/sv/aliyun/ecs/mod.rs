@@ -278,7 +278,9 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
     }
 
     /* write final result to DB */
-    if let Ok(pgconn) = Connection::connect(PGINFO, TlsMode::None) {
+    let pginfo;
+    unsafe { pginfo = PGINFO; }
+    if let Ok(pgconn) = Connection::connect(pginfo, TlsMode::None) {
         for (ts, v) in holder.lock().unwrap().iter() {
             if let Err(e) = pgconn.execute(
                 "INSERT INTO sv_ecs VALUES ($1, $2)",
