@@ -13,14 +13,20 @@ impl DATA for Data {
 
     fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = base::argv_new(region);
-        argv.push("networkout_packages".to_owned());
+        argv.push(ME.to_owned());
 
         argv
     }
 
     fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>) {
-        let setter = |netif: &mut NetIf, v: i32| netif.wrtps = v;
-
         super::insert(holder, data, setter);
     }
 }
+
+/////////////////////////////////////////////////////
+const ME: &str = "networkout_packages";
+
+fn setter(netif: &mut NetIf, v: i32) {
+    netif.wrtps = v;
+}
+/////////////////////////////////////////////////////

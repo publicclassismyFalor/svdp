@@ -12,14 +12,20 @@ impl DATA for Data {
 
     fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = base::argv_new(region);
-        argv.push("TrafficRXNew".to_owned());
+        argv.push(ME.to_owned());
 
         argv
     }
 
     fn insert(&self, holder: &Self::Holder, data: Vec<u8>) {
-        let setter = |inner: &mut Inner, v: i32| inner.rd = v / 8 / 1024;
-
         base::insert(holder, data, setter);
     }
 }
+
+/////////////////////////////////////////////////////
+const ME: &str = "TrafficRXNew";
+
+fn setter(inner: &mut Inner, v: i32) {
+    inner.rd = v / 8 / 1024;
+}
+/////////////////////////////////////////////////////

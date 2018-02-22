@@ -18,7 +18,8 @@ use std::sync::{Arc, Mutex};
 
 use super::{DATA, PGINFO, BASESTAMP, INTERVAL};
 
-pub const MSPERIOD: u64 = 300000;  //
+pub const ACSITEM: &str = "acs_mongodb";
+pub const MSPERIOD: u64 = 300000;
 
 /* key: time_stamp */
 pub struct MongoDB {
@@ -27,12 +28,12 @@ pub struct MongoDB {
 
 #[derive(Serialize, Deserialize)]
 pub struct Inner {
-    cpu_rate: i16,
-    mem_rate: i16,
-    conn_rate: i16,
+    cpu_ratio: i16,
+    mem_ratio: i16,
+    conn_ratio: i16,
 
-    disk_rate: i16,
-    disktps_rate: i16,
+    disk_ratio: i16,
+    disktps_ratio: i16,
 
     rd: i32,
     wr: i32,
@@ -49,11 +50,11 @@ impl MongoDB {
 impl Inner {
     fn new() -> Inner {
         Inner {
-            cpu_rate: 0,
-            mem_rate: 0,
-            conn_rate: 0,
-            disk_rate: 0,
-            disktps_rate: 0,
+            cpu_ratio: 0,
+            mem_ratio: 0,
+            conn_ratio: 0,
+            disk_ratio: 0,
+            disktps_ratio: 0,
             rd: 0,
             wr: 0,
         }
@@ -66,42 +67,42 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, MongoDB>>>, region: String) {
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            cpu::Data.get(h, r);  //
+            cpu::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            mem::Data.get(h, r);  //
+            mem::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            disk::Data.get(h, r);  //
+            disk::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            disk_tps::Data.get(h, r);  //
+            disk_tps::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            conn::Data.get(h, r);  //
+            conn::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     let r = region.clone();
     tids.push(thread::spawn(move || {
-            rd::Data.get(h, r);  //
+            rd::Data.get(h, r);
         }));
 
     let h = Arc::clone(&holder);
     tids.push(thread::spawn(move || {
-            wr::Data.get(h, region);  //
+            wr::Data.get(h, region);
         }));
 
     for tid in tids {

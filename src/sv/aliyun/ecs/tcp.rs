@@ -15,7 +15,7 @@ impl DATA for Data {
 
     fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = base::argv_new(region);
-        argv.push("net_tcpconnection".to_owned());
+        argv.push(ME.to_owned());
 
         argv
     }
@@ -63,3 +63,7 @@ impl DATA for Data {
         }
     }
 }
+
+/////////////////////////////////////////////////////
+const ME: &str = "net_tcpconnection";
+/////////////////////////////////////////////////////
