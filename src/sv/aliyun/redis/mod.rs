@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::thread;
 use std::sync::{Arc, Mutex};
 
-use super::{DATA, PGINFO, BASESTAMP, INTERVAL};
+use super::{DATA, BASESTAMP, INTERVAL};
 
 pub const ACSITEM: &str = "acs_kvstore";
 pub const MSPERIOD: u64 = 60000;
@@ -90,7 +90,7 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Redis>>>, region: String) {
     }
 
     /* write final result to DB */
-    if let Ok(pgconn) = Connection::connect(PGINFO.as_str(), TlsMode::None) {
+    if let Ok(pgconn) = Connection::connect(::CONF.pg_login_url.as_str(), TlsMode::None) {
         for (ts, v) in holder.lock().unwrap().iter() {
             if let Err(e) = pgconn.execute(
                 "INSERT INTO sv_redis VALUES ($1, $2)",

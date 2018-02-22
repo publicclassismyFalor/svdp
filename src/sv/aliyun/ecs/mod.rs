@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
 
-use super::{DATA, PGINFO, BASESTAMP, INTERVAL, cmd_exec};
+use super::{DATA, BASESTAMP, INTERVAL, cmd_exec};
 
 pub const ACSITEM: &str = "acs_ecs_dashboard";
 pub const MSPERIOD: u64 = 15000;  // ms period
@@ -279,7 +279,7 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
     }
 
     /* write final result to DB */
-    if let Ok(pgconn) = Connection::connect(PGINFO.as_str(), TlsMode::None) {
+    if let Ok(pgconn) = Connection::connect(::CONF.pg_login_url.as_str(), TlsMode::None) {
         for (ts, v) in holder.lock().unwrap().iter() {
             if let Err(e) = pgconn.execute(
                 "INSERT INTO sv_ecs VALUES ($1, $2)",

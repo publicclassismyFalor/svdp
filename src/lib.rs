@@ -16,11 +16,10 @@ use std::thread;
 use std::fs::File;
 use std::io::Read;
 
-#[derive(Debug)]
 #[derive(Deserialize)]
 pub struct Config {
-    pub pg_login_url: String,  // UNIX DOMAIN SOCKET: "postgres://jack@%2Fhome%2Fjack/svdp"
-    pub sv_serv_addr: String,  // "[::1]:30000"
+    pg_login_url: String,  // UNIX DOMAIN SOCKET: "postgres://jack@%2Fhome%2Fjack/svdp"
+    sv_serv_addr: String,  // "[::1]:30000"
 }
 
 lazy_static! {
@@ -52,8 +51,6 @@ fn jsonrpc_serv() {
 
 
 pub fn run() {
-    println!("{:#?}", *CONF);
-
     thread::spawn(|| jsonrpc_serv());
 
     sv::go();
