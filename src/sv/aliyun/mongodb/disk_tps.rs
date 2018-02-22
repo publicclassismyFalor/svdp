@@ -12,14 +12,20 @@ impl DATA for Data {
 
     fn argv_new(&self, region: String) -> Vec<String> {
         let mut argv = base::argv_new(region);
-        argv.push("IOPSUtilization".to_owned());
+        argv.push(ME.to_owned());
 
         argv
     }
 
     fn insert(&self, holder: &Self::Holder, data: Vec<u8>) {
-        let setter = |inner: &mut Inner, v: f64| inner.disktps_rate = (v * 10.0) as i16;
-
         base::insert(holder, data, setter);
     }
 }
+
+/////////////////////////////////////////////////////
+const ME: &str = "IOPSUtilization";
+
+fn setter(inner: &mut Inner, v: f64) {
+    inner.disktps_rate = (v * 10.0) as i16;
+}
+/////////////////////////////////////////////////////
