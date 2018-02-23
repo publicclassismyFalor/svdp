@@ -168,6 +168,7 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
         }
     }
 
+    //let res = res.replace("\": ", "\":");
     if let Err(e) = socket.write(format!("{}\"result\":{},\"id\":{}{}" , "{", res, req.id, "}").as_bytes()) {
         err!(e);
     }
