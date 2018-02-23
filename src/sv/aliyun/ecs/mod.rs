@@ -159,7 +159,7 @@ fn get_meta <T: META> (holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String, t:
                 thread::spawn(move || {
                     extra_.push(page.to_string());
                     if let Ok(ret) = cmd_exec(extra_) {
-                        tx.send(ret).unwrap_or_else(|e| { err!(e); });
+                        tx.send(ret).unwrap_or_else(|e|{ err!(e); });
                     }
                 });
             };
