@@ -166,7 +166,9 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
         }
     }
 
-    socket.write(res).unwrap_or_else(|e|{ errexit!(e); });
+    if let Err(e) = socket.write(res) {
+        err!(e);
+    }
 }
 
 pub fn run() {
