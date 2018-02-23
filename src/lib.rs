@@ -14,8 +14,11 @@ mod dp;
 
 use std::thread;
 use std::fs::File;
-use std::io::{Read, Error};
+use std::io::Read;
 use std::net::{TcpListener, TcpStream};
+
+use threadpool::ThreadPool;
+use r2d2_postgres::{TlsMode, PostgresConnectionManager};
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -42,16 +45,30 @@ fn conf_parse() -> Config {
 
 /* json rpc service on tcp */
 fn jsonrpc_serv() {
-    for stream in TcpListener::bind(&CONF.sv_serv_addr)
-        .unwrap_or_else(|e|{ errexit!(e); })
-        .incoming() {
-        // TODO: use thread pool
-        worker(stream);
-    }
-}
+    let tdpool = ThreadPool::new(20);
 
-fn worker(stream: Result<TcpStream, Error>) {
-    // TODO
+    let pgmg = PostgresConnectionManager::new(CONF.pg_login_url.as_str(), TlsMode::None)
+        .unwrap_or_else(|e|{ errexit!(e); });
+    let pgpool = r2d2::Pool::builder()
+        .max_size(20)
+        .build(pgmg)
+        .unwrap_or_else(|e|{ errexit!(e); });
+
+    let listener = TcpListener::bind(&CONF.sv_serv_addr)
+        .unwrap_or_else(|e|{ errexit!(e); });
+
+    loop {
+        match listener.accept() {
+            Ok((_socket, _addr)) => {
+                let pgpool = pgpool.clone();
+
+                tdpool.execute(move|| {
+                    let pgconn = pgpool.get().unwrap_or_else(|e| { errexit!(e); });
+                });
+            },
+            Err(e) => err!(e)
+        }
+    }
 }
 
 
