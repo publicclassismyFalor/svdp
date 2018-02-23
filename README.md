@@ -8,6 +8,7 @@
 #### 出错返回：
 {"err":"...","id":0}
 
+## 说明
 - 目前仅支持全量查询与单实例查询，多实例查询可通过并发请求实现；
 - method 可选值有：sv_ecs/sv_rds/sv_slb/sv_memcache/sv_mongodb/sv_redis；    
 - params 中的 instance_id 为可选项，不指定则表示查询全量数据（注：与空值不同，即指定了字段，但值为空，将返回错误）；
