@@ -15,9 +15,10 @@ mod dp;
 use std::thread;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::net::TcpListener;
+use std::net::{TcpStream, TcpListener};
 
 use threadpool::ThreadPool;
+use r2d2::Pool;
 use r2d2_postgres::{TlsMode, PostgresConnectionManager};
 
 #[derive(Deserialize)]
@@ -79,47 +80,10 @@ fn jsonrpc_serv() {
 
     loop {
         match listener.accept() {
-            Ok((mut socket, _peeraddr)) => {
+            Ok((socket, _peeraddr)) => {
                 let pgpool = pgpool.clone();
                 tdpool.execute(move|| {
-                    let mut buf = String::new();
-                    while 0 < socket.read_to_string(&mut buf)
-                        .unwrap_or_else(|e|{ errexit!(e); }) {}
-
-                    let req: Req = serde_json::from_str(&buf).unwrap_or_else(|e| {
-                        socket.write("{\"err\":\"json parse err\",\"id\":-1}".as_bytes())
-                            .unwrap_or_else(|err|{ errexit!(err); });
-                        errexit!(e);
-                    });
-
-                    let querysql = String::new();
-                    match req.params.instance_id {
-                        None => {
-                        },
-                        _ => {
-                        }
-                    }
-
-                    let pgconn = pgpool.get().unwrap_or_else(|e| {
-                        socket.write(format!("{}\"err\":\"db_conn_pool busy\",\"id\":{}{}", "{", req.id, "}").as_bytes())
-                            .unwrap_or_else(|err|{ errexit!(err); });
-                        errexit!(e);
-                    });
-
-                    let qres = pgconn.query(querysql.as_str(), &[]).unwrap_or_else(|e| {
-                        socket.write(format!("{}\"err\":\"db query err\",\"id\":{}{}", "{", req.id, "}").as_bytes())
-                            .unwrap_or_else(|err|{ errexit!(err); });
-                        errexit!(e);
-                    });
-
-                    let resrow = qres.get(0);
-                    let res = resrow.get_bytes(0).unwrap_or_else(|| {
-                        socket.write(format!("{}\"err\":\"empty result\",\"id\":{}{}", "{", req.id, "}").as_bytes())
-                            .unwrap_or_else(|err|{ errexit!(err); });
-                        errexit!("empty result");
-                    });
-
-                    socket.write(res).unwrap_or_else(|e|{ errexit!(e); });
+                    worker(socket, pgpool);
                 });
             },
 
@@ -128,6 +92,82 @@ fn jsonrpc_serv() {
     }
 }
 
+fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
+    let mut buf = String::new();
+    loop {
+        match socket.read_to_string(&mut buf) {
+            Ok(cnt) if 0 == cnt => break,
+            Err(e) => {
+                err!(e);
+                return;
+            },
+            _ => continue
+        }
+    }
+
+    let req: Req;
+    match serde_json::from_str(&buf) {
+        Ok(r) => req = r,
+        Err(e) => {
+            let errmsg = "{\"err\":\"json parse err\",\"id\":-1}";
+            socket.write(errmsg.as_bytes()).unwrap_or_default();
+
+            err!(e);
+            return;
+        }
+    }
+
+    let pgconn;
+    match pgpool.get() {
+        Ok(conn) => pgconn = conn,
+        Err(e) => {
+            let errmsg = format!("{}\"err\":\"db_conn_pool busy\",\"id\":{}{}", "{", req.id, "}");
+            socket.write(errmsg.as_bytes()).unwrap_or_default();
+
+            err!(e);
+            return;
+        }
+    }
+
+    let querysql = String::new();
+    match req.params.instance_id {
+        None => {
+            // TODO
+        },
+        _ => {
+            // TODO
+        }
+    }
+
+    let qrow;
+    match pgconn.query(querysql.as_str(), &[]) {
+        Ok(q) => {
+            qrow = q;
+        },
+        Err(e) => {
+            let errmsg = format!("{}\"err\":\"db query err\",\"id\":{}{}", "{", req.id, "}");
+            socket.write(errmsg.as_bytes()).unwrap_or_default();
+
+            err!(e);
+            return;
+        }
+    }
+
+    let qres = qrow.get(0);
+    let res;
+    match qres.get_bytes(0) {
+        Some(r) => res = r,
+        None => {
+            let errmsg = format!("{}\"err\":\"empty result\",\"id\":{}{}", "{", req.id, "}");
+            socket.write(errmsg.as_bytes()).unwrap_or_default();
+
+            err!("empty result");
+            return;
+        }
+    }
+
+    socket.write(res).unwrap_or_else(|e|{ errexit!(e); });
+}
 
 pub fn run() {
     thread::spawn(|| jsonrpc_serv());
