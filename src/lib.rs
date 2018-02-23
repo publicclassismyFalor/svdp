@@ -137,8 +137,6 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
         },
         Some(ids) => {
             let mut instance_ids = String::new();
-            instance_ids.push_str("(");
-
             let rangelimit = ids.len() - 1;
             for i in 0..rangelimit {
                 instance_ids.push_str("\"");
@@ -150,9 +148,7 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
             instance_ids.push_str(&ids[rangelimit]);
             instance_ids.push_str("\"");
 
-            instance_ids.push_str(")");
-
-            querysql = format!("{}{}{}{}", req.method, req.params.ts_range[0], req.params.ts_range[1], instance_ids);
+            querysql = format!("{}{}{}    ({})", req.method, req.params.ts_range[0], req.params.ts_range[1], instance_ids);
         }
     }
 
