@@ -137,7 +137,8 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
         },
         Some(insid) => {
             querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
-                               (SELECT ts, (SELECT row_to_json(t) FROM (SELECT sv->'{}' as {}) t) AS sv FROM {} WHERE ts >= {} AND ts <= {}) d", insid, insid, req.method, req.params.ts_range[0], req.params.ts_range[1]);
+                               (SELECT ts, (SELECT row_to_json(t) FROM (SELECT sv->'{}' AS {}) t) AS sv FROM {} WHERE ts >= {} AND ts <= {}) d",
+                               insid, insid.replace("-", "_"), req.method, req.params.ts_range[0], req.params.ts_range[1]);
         }
     }
 
@@ -168,6 +169,7 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
         }
     }
 
+    //let res = res.replace("\": ", "\":");
     if let Err(e) = socket.write(format!("{}\"result\":{},\"id\":{}{}" , "{", res, req.id, "}").as_bytes()) {
         err!(e);
     }
