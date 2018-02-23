@@ -1,15 +1,14 @@
-#[macro_use]
-extern crate lazy_static;
-
+#[macro_use] extern crate lazy_static;
 extern crate serde;
 extern crate serde_json;
-
-#[macro_use]
-extern crate serde_derive;
-
+#[macro_use] extern crate serde_derive;
+extern crate r2d2;
+extern crate r2d2_postgres;
 extern crate postgres;
 extern crate toml;
+extern crate threadpool;
 
+#[macro_use] mod zmacro;
 mod sv;
 mod dp;
 
@@ -30,29 +29,16 @@ lazy_static! {
 
 /* parse config file */
 fn conf_parse() -> Config {
-    let mut file = File::open("major.toml").unwrap_or_else(|e| {
-        eprintln!("[{}, {}] ==> {}", file!(), line!(), e);
-        std::process::exit(1);
-    });
+    let mut file = File::open("major.toml").unwrap_or_else(|e| { errexit!(e); });
 
     let mut content = String::new();
-    file.read_to_string(&mut content).unwrap_or_else(|e| {
-        eprintln!("[{}, {}] ==> {}", file!(), line!(), e);
-        std::process::exit(1);
-    });
-
-    toml::from_str::<Config>(&content).unwrap_or_else(|e| {
-        eprintln!("[{}, {}] ==> {}", file!(), line!(), e);
-        std::process::exit(1);
-    })
+    file.read_to_string(&mut content).unwrap_or_else(|e| { errexit!(e); }); 
+    toml::from_str::<Config>(&content).unwrap_or_else(|e| { errexit!(e); })
 }
 
 /* json rpc service on tcp */
 fn jsonrpc_serv() {
-    let listener = TcpListener::bind(&CONF.sv_serv_addr).unwrap_or_else(|e| {
-        eprintln!("[{}, {}] ==> {}", file!(), line!(), e);
-        std::process::exit(1);
-    });
+    let listener = TcpListener::bind(&CONF.sv_serv_addr).unwrap_or_else(|e| { errexit!(e); });
 
     for stream in listener.incoming() {
         // TODO: use thread pool

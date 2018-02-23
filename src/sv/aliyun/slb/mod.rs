@@ -98,11 +98,11 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Slb>>>, region: String) {
                     &((ts / 1000) as i32),
                     &serde_json::to_value(&v.data).unwrap()
                 ]) {
-                eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e);
+                err!(e);
             }
         }
     } else {
-        eprintln!("[file: {}, line: {}] ==> DB connect failed.", file!(), line!());
+        err!("DB connect failed");
     }
 }
 

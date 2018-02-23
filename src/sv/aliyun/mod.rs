@@ -122,7 +122,7 @@ pub fn go() {
                 regions = r;
             },
             None => {
-                eprintln!("[file: {}, line: {}] ==> !!! regions sync failed !!!", file!(), line!());
+                err!("get region list failed");
                 thread::sleep(Duration::from_secs(10));
                 continue;
             }
@@ -141,7 +141,7 @@ pub fn go() {
                     tbsuf,
                     (3600 * (tbmark - 1)) as i32,
                     (3600 * tbmark) as i32), &[]) {
-                    eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e);
+                    err!(e);
                 }
 
                 /* delete tables created before 10 days ago */
@@ -149,7 +149,7 @@ pub fn go() {
                     &format!("DROP TABLE IF EXISTS sv_{}_{}",
                     tbsuf,
                     tbmark - 1 - 240), &[]) {
-                    eprintln!("[file: {}, line: {}] ==> {}", file!(), line!(), e);
+                    err!(e);
                 }
             }
 
