@@ -29,18 +29,22 @@ lazy_static! {
 
 /* parse config file */
 fn conf_parse() -> Config {
-    let mut file = File::open("major.toml").unwrap_or_else(|e| { errexit!(e); });
-
     let mut content = String::new();
-    file.read_to_string(&mut content).unwrap_or_else(|e| { errexit!(e); }); 
-    toml::from_str::<Config>(&content).unwrap_or_else(|e| { errexit!(e); })
+
+    File::open("major.toml")
+        .unwrap_or_else(|e|{ errexit!(e); })
+        .read_to_string(&mut content)
+        .unwrap_or_else(|e|{ errexit!(e); });
+
+    toml::from_str::<Config>(&content)
+        .unwrap_or_else(|e|{ errexit!(e); })
 }
 
 /* json rpc service on tcp */
 fn jsonrpc_serv() {
-    let listener = TcpListener::bind(&CONF.sv_serv_addr).unwrap_or_else(|e| { errexit!(e); });
-
-    for stream in listener.incoming() {
+    for stream in TcpListener::bind(&CONF.sv_serv_addr)
+        .unwrap_or_else(|e|{ errexit!(e); })
+        .incoming() {
         // TODO: use thread pool
         worker(stream);
     }
@@ -49,8 +53,6 @@ fn jsonrpc_serv() {
 fn worker(stream: Result<TcpStream, Error>) {
     // TODO
 }
-
-
 
 
 pub fn run() {
