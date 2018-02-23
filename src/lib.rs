@@ -62,7 +62,7 @@ struct Params {
 /// {"method":"sv_ecs","params":{"instance_id":"i-123456","ts_range":[15000000,1600000]},"id":0}
 ///
 /// RES example:
-/// {"result":"{...}","id":0}
+/// {"result":["ts":1519379068,"data":{...}],"id":0}
 /// OR
 /// {"err":"...","id":0}
 fn jsonrpc_serv() {
@@ -129,13 +129,30 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
         }
     }
 
-    let querysql = String::new();
+    let querysql;
     match req.params.instance_id {
         None => {
-            // TODO
+            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
+                               (SELECT ts, sv FROM {} WHERE ts >= {} AND ts <= {}) d", req.method, req.params.ts_range[0], req.params.ts_range[1]);
         },
-        _ => {
-            // TODO
+        Some(ids) => {
+            let mut instance_ids = String::new();
+            instance_ids.push_str("(");
+
+            let rangelimit = ids.len() - 1;
+            for i in 0..rangelimit {
+                instance_ids.push_str("\"");
+                instance_ids.push_str(&ids[i]);
+                instance_ids.push_str("\"");
+                instance_ids.push_str(",");
+            }
+            instance_ids.push_str("\"");
+            instance_ids.push_str(&ids[rangelimit]);
+            instance_ids.push_str("\"");
+
+            instance_ids.push_str(")");
+
+            querysql = format!("{}{}{}{}", req.method, req.params.ts_range[0], req.params.ts_range[1], instance_ids);
         }
     }
 
@@ -154,8 +171,8 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
     }
 
     let qres = qrow.get(0);
-    let res;
-    match qres.get_bytes(0) {
+    let res: String;
+    match qres.get(0) {
         Some(r) => res = r,
         None => {
             let errmsg = format!("{}\"err\":\"empty result\",\"id\":{}{}", "{", req.id, "}");
@@ -166,7 +183,7 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
         }
     }
 
-    if let Err(e) = socket.write(res) {
+    if let Err(e) = socket.write(format!("{}\"result\":{},\"id\":{}{}" , "{", res, req.id, "}").as_bytes()) {
         err!(e);
     }
 }
