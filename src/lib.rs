@@ -54,7 +54,7 @@ struct Req {
 
 #[derive(Serialize, Deserialize)]
 struct Params {
-    instance_id: Option<Vec<String>>,
+    instance_id: Option<String>,
     ts_range: [i32; 2],
 }
 
@@ -135,20 +135,9 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
             querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
                                (SELECT ts, sv FROM {} WHERE ts >= {} AND ts <= {}) d", req.method, req.params.ts_range[0], req.params.ts_range[1]);
         },
-        Some(ids) => {
-            let mut instance_ids = String::new();
-            let rangelimit = ids.len() - 1;
-            for i in 0..rangelimit {
-                instance_ids.push_str("\"");
-                instance_ids.push_str(&ids[i]);
-                instance_ids.push_str("\"");
-                instance_ids.push_str(",");
-            }
-            instance_ids.push_str("\"");
-            instance_ids.push_str(&ids[rangelimit]);
-            instance_ids.push_str("\"");
-
-            querysql = format!("{}{}{}    ({})", req.method, req.params.ts_range[0], req.params.ts_range[1], instance_ids);
+        Some(insid) => {
+            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
+                               (SELECT ts, (SELECT row_to_json(t) FROM (SELECT sv->'{}' as {}) t) AS sv FROM {} WHERE ts >= {} AND ts <= {}) d", insid, insid, req.method, req.params.ts_range[0], req.params.ts_range[1]);
         }
     }
 
