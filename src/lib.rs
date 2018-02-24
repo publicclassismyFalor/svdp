@@ -15,7 +15,7 @@ mod dp;
 use std::thread;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::net::{TcpStream, TcpListener};
+use std::net::{TcpStream, TcpListener, Shutdown};
 
 use threadpool::ThreadPool;
 use r2d2::Pool;
@@ -173,6 +173,8 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
     if let Err(e) = socket.write(format!("{}\"result\":{},\"id\":{}{}" , "{", res, req.id, "}").as_bytes()) {
         err!(e);
     }
+
+    socket.shutdown(Shutdown::Write).unwrap_or_default();
 }
 
 pub fn run() {
