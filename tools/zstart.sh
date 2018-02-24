@@ -112,6 +112,9 @@ ${zPgBinPath}/createdb -O `whoami` svdp
 # 借助 nohup 进入守护进程模式
 killall svdp
 cd ${zProjPath}/conf
+# !!! 普通用户使用 1024 以下端口，需要设置 CAP !!!
+# setcap cap_net_bind_service=+eip ${zProjPath}/target/release/svdp
+# 清除 CAP：setcap -r ${zProjPath}/target/release/svdp
 nohup cargo run --release &
 if [[ 0 -ne $? ]]; then
     printf "\033[31;01msvdp start failed !!\033[00m\n"
