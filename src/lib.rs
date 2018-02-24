@@ -83,7 +83,7 @@ fn jsonrpc_serv() {
             Ok((socket, _peeraddr)) => {
                 let pgpool = pgpool.clone();
                 tdpool.execute(move|| {
-                    worker(socket, pgpool).shutdown(Shutdown::Write).unwrap_or_default();
+                    worker(socket, pgpool);
                 });
             },
             Err(e) => err!(e)
@@ -91,30 +91,15 @@ fn jsonrpc_serv() {
     }
 }
 
-fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) -> TcpStream {
+fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
     let mut buf = Vec::new();
     if let Err(e) = socket.read_to_end(&mut buf) {
         let errmsg = "{\"err\":\"socket read err\",\"id\":-1}";
         socket.write(errmsg.as_bytes()).unwrap_or_default();
 
         err!(e);
-        return socket;
+        return;
     }
-
-    // === TMP USE === to delete
-    //loop {
-    //    match socket.read(&mut buf) {
-    //        Ok(cnt) if 0 < cnt => break,
-    //        Err(e) => {
-    //            let errmsg = "{\"err\":\"socket read err\",\"id\":-1}";
-    //            socket.write(errmsg.as_bytes()).unwrap_or_default();
-
-    //            err!(e);
-    //            return socket;
-    //        },
-    //        _ => continue
-    //    }
-    //}
 
     let req: Req;
     match serde_json::from_slice(&buf) {
@@ -124,7 +109,7 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) -> Tcp
             socket.write(errmsg.as_bytes()).unwrap_or_default();
 
             err!(e);
-            return socket;
+            return;
         }
     }
 
@@ -136,7 +121,7 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) -> Tcp
             socket.write(errmsg.as_bytes()).unwrap_or_default();
 
             err!(e);
-            return socket;
+            return;
         }
     }
 
@@ -163,7 +148,7 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) -> Tcp
             socket.write(errmsg.as_bytes()).unwrap_or_default();
 
             err!(e);
-            return socket;
+            return;
         }
     }
 
@@ -176,7 +161,7 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) -> Tcp
             socket.write(errmsg.as_bytes()).unwrap_or_default();
 
             err!("empty result");
-            return socket;
+            return;
         }
     }
 
@@ -185,7 +170,8 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) -> Tcp
         err!(e);
     }
 
-    return socket;
+    socket.shutdown(Shutdown::Write).unwrap_or_default();
+    return;
 }
 
 pub fn run() {
