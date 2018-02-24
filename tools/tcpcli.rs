@@ -9,7 +9,7 @@ use std::net::{TcpStream, Shutdown};
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    let mut port: &str = "20000";
+    let mut port: &str = "30000";
     let content: &str;
 
     if 3 == args.len() {
