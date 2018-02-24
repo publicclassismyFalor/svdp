@@ -7,6 +7,8 @@ extern crate r2d2_postgres;
 extern crate postgres;
 extern crate toml;
 extern crate threadpool;
+extern crate iron;
+extern crate num_cpus;
 
 #[macro_use] mod zmacro;
 mod sv;
@@ -15,7 +17,12 @@ mod dp;
 use std::thread;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::io::{Error, ErrorKind};
 use std::net::{TcpStream, TcpListener};
+
+/* async http serv */
+use iron::prelude::*;
+use iron::status;
 
 use threadpool::ThreadPool;
 use r2d2::Pool;
@@ -24,11 +31,24 @@ use r2d2_postgres::{TlsMode, PostgresConnectionManager};
 #[derive(Deserialize)]
 pub struct Config {
     pg_login_url: String,  // UNIX DOMAIN SOCKET: "postgres://jack@%2Fhome%2Fjack/svdp"
-    sv_serv_addr: String,  // "[::1]:30000"
+    sv_tcp_addr: String,  // "[::1]:20000"
+    sv_http_addr: String,  // "[::1]:30000"
 }
 
 lazy_static! {
     pub static ref CONF: Config = conf_parse();
+}
+
+lazy_static! {
+    pub static ref DBPOOL: Pool<PostgresConnectionManager> = {
+        let pgmg = PostgresConnectionManager::new(CONF.pg_login_url.as_str(), TlsMode::None)
+            .unwrap_or_else(|e|{ errexit!(e); });
+
+        r2d2::Pool::builder()
+            .max_size((::num_cpus::get() * 2) as u32)
+            .build(pgmg)
+            .unwrap_or_else(|e|{ errexit!(e); })
+    };
 }
 
 /* parse config file */
@@ -44,7 +64,22 @@ fn conf_parse() -> Config {
         .unwrap_or_else(|e|{ errexit!(e); })
 }
 
-/* json rpc service on tcp */
+pub fn run() {
+    thread::spawn(|| http_serv());
+    thread::spawn(|| tcp_serv());
+
+    sv::go();
+    dp::go();
+}
+
+
+/// REQ example:
+/// {"method":"sv_ecs","params":{"instance_id":"i-123456","ts_range":[15000000,1600000]},"id":0}
+///
+/// RES example:
+/// {"result":["ts":1519379068,"data":{...}],"id":0}
+/// OR
+/// {"err":"...","id":0}
 #[derive(Serialize, Deserialize)]
 struct Req {
     method: String,
@@ -58,74 +93,94 @@ struct Params {
     ts_range: [i32; 2],
 }
 
-/// REQ example:
-/// {"method":"sv_ecs","params":{"instance_id":"i-123456","ts_range":[15000000,1600000]},"id":0}
-///
-/// RES example:
-/// {"result":["ts":1519379068,"data":{...}],"id":0}
-/// OR
-/// {"err":"...","id":0}
-fn jsonrpc_serv() {
-    let tdpool = ThreadPool::new(20);
-
-    let pgmg = PostgresConnectionManager::new(CONF.pg_login_url.as_str(), TlsMode::None)
+/****************
+ * http service *
+ ****************/
+fn http_serv() {
+    Iron::new(http_ops).http(&CONF.sv_http_addr)
         .unwrap_or_else(|e|{ errexit!(e); });
-    let pgpool = r2d2::Pool::builder()
-        .max_size(20)
-        .build(pgmg)
-        .unwrap_or_else(|e|{ errexit!(e); });
+}
 
-    let listener = TcpListener::bind(&CONF.sv_serv_addr)
+fn http_ops(request: &mut iron::Request) -> IronResult<Response> {
+    let mut buf = Vec::new();
+    request
+        .body
+        .read_to_end(&mut buf)
+        .map_err(|e| IronError::new(e, (status::InternalServerError, "request reading err")))?;
+
+    match worker(&buf) {
+        Ok((res, id)) => {
+            return Ok( Response::with( (status::Ok, format!("{}\"result\":{},\"id\":{}{}" , "{", res, id, "}").as_bytes()) ) );
+        },
+        Err(e) => {
+            return Err(iron::IronError::new(Error::from(ErrorKind::Other), (status::NotFound, e)));
+        }
+    }
+}
+
+/*******************
+ * raw tcp service *
+ *******************/
+fn tcp_serv() {
+    let tdpool = ThreadPool::new(::num_cpus::get());
+
+    let listener = TcpListener::bind(&CONF.sv_tcp_addr)
         .unwrap_or_else(|e|{ errexit!(e); });
 
     loop {
         match listener.accept() {
             Ok((socket, _peeraddr)) => {
-                let pgpool = pgpool.clone();
                 tdpool.execute(move|| {
-                    worker(socket, pgpool);
+                    tcp_ops(socket);
                 });
             },
-
             Err(e) => err!(e)
         }
     }
 }
 
-fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
-    let mut buf = String::new();
-    loop {
-        match socket.read_to_string(&mut buf) {
-            Ok(cnt) if 0 == cnt => break,
-            Err(e) => {
-                err!(e);
-                return;
-            },
-            _ => continue
-        }
+fn tcp_ops(mut socket: TcpStream) {
+    let mut buf: Vec<u8> = Vec::new();
+    if let Err(e) = socket.read_to_end(&mut buf) {
+        let errmsg = "{\"err\":\"socket read err\",\"id\":-1}";
+        socket.write(errmsg.as_bytes()).unwrap_or_default();
+
+        err!(e);
+        return;
     }
 
+    match worker(&buf) {
+        Ok((res, id)) => {
+            //let res = res.replace("\": ", "\":");
+            if let Err(e) = socket.write(format!("{}\"result\":{},\"id\":{}{}" , "{", res, id, "}").as_bytes()) {
+                err!(e);
+            }
+        },
+        Err(e) => {
+            socket.write(e.as_bytes()).unwrap_or_default();
+        }
+    }
+}
+
+/**************************************
+ * common worker for http and raw tcp *
+ **************************************/
+fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
     let req: Req;
-    match serde_json::from_str(&buf) {
+    match serde_json::from_slice(body) {
         Ok(r) => req = r,
         Err(e) => {
-            let errmsg = "{\"err\":\"json parse err\",\"id\":-1}";
-            socket.write(errmsg.as_bytes()).unwrap_or_default();
-
             err!(e);
-            return;
+            return Err("{\"err\":\"json parse err\",\"id\":-1}".to_owned());
         }
     }
 
     let pgconn;
-    match pgpool.get() {
+    match DBPOOL.clone().get() {
         Ok(conn) => pgconn = conn,
         Err(e) => {
-            let errmsg = format!("{}\"err\":\"db_conn_pool busy\",\"id\":{}{}", "{", req.id, "}");
-            socket.write(errmsg.as_bytes()).unwrap_or_default();
-
             err!(e);
-            return;
+            return Err(format!("{}\"err\":\"db_conn_pool busy\",\"id\":{}{}", "{", req.id, "}"));
         }
     }
 
@@ -148,11 +203,8 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
             qrow = q;
         },
         Err(e) => {
-            let errmsg = format!("{}\"err\":\"db query err\",\"id\":{}{}", "{", req.id, "}");
-            socket.write(errmsg.as_bytes()).unwrap_or_default();
-
             err!(e);
-            return;
+            return Err(format!("{}\"err\":\"db query err\",\"id\":{}{}", "{", req.id, "}"));
         }
     }
 
@@ -161,23 +213,10 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
     match qres.get(0) {
         Some(r) => res = r,
         None => {
-            let errmsg = format!("{}\"err\":\"empty result\",\"id\":{}{}", "{", req.id, "}");
-            socket.write(errmsg.as_bytes()).unwrap_or_default();
-
             err!("empty result");
-            return;
+            return Err(format!("{}\"err\":\"empty result\",\"id\":{}{}", "{", req.id, "}"));
         }
     }
 
-    //let res = res.replace("\": ", "\":");
-    if let Err(e) = socket.write(format!("{}\"result\":{},\"id\":{}{}" , "{", res, req.id, "}").as_bytes()) {
-        err!(e);
-    }
-}
-
-pub fn run() {
-    thread::spawn(|| jsonrpc_serv());
-
-    sv::go();
-    dp::go();
+    Ok((res, req.id))
 }
