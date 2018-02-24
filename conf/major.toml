@@ -1,3 +1,4 @@
-pg_login_url = "postgres://fh@%2Fhome%2Ffh/svdp"
 sv_tcp_addr = "172.30.50.97:30000"
-sv_http_addr = "172.30.50.97:80"
+sv_http_addr = "172.30.50.97:30001"
+
+pg_login_url = "postgres://fh@%2Fhome%2Ffh/svdp"
