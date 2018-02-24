@@ -44,7 +44,19 @@ fn conf_parse() -> Config {
         .unwrap_or_else(|e|{ errexit!(e); })
 }
 
-/* json rpc service on tcp */
+pub fn run() {
+    thread::spawn(|| jsonrpc_serv());
+
+    sv::go();
+    dp::go();
+}
+
+
+
+
+/***************************
+ * json rpc service on tcp *
+ ***************************/
 #[derive(Serialize, Deserialize)]
 struct Req {
     method: String,
@@ -170,13 +182,6 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
         err!(e);
     }
 
-    //socket.shutdown(Shutdown::Both).unwrap_or_default();
+    socket.shutdown(Shutdown::Write).unwrap_or_default();
     return;
-}
-
-pub fn run() {
-    thread::spawn(|| jsonrpc_serv());
-
-    sv::go();
-    dp::go();
 }
