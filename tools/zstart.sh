@@ -28,7 +28,7 @@ if [[ 0 == `which cargo | wc -l` ]]; then
     curl https://sh.rustup.rs -sSf | sh
     source ~/.cargo/env
     if [[ 0 -ne $? ]]; then
-        echo "rust_env init err!"
+        printf "\033[31;01mrust_env init err!!\033[00m\n"
         exit 1
     fi
 fi
