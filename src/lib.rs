@@ -31,7 +31,8 @@ use r2d2_postgres::{TlsMode, PostgresConnectionManager};
 #[derive(Deserialize)]
 pub struct Config {
     pg_login_url: String,  // UNIX DOMAIN SOCKET: "postgres://jack@%2Fhome%2Fjack/svdp"
-    sv_serv_addr: String,  // "[::1]:30000"
+    sv_tcp_addr: String,  // "[::1]:20000"
+    sv_http_addr: String,  // "[::1]:30000"
 }
 
 lazy_static! {
@@ -96,7 +97,7 @@ struct Params {
  * http service *
  ****************/
 fn http_serv() {
-    Iron::new(http_ops).http(&CONF.sv_serv_addr)
+    Iron::new(http_ops).http(&CONF.sv_tcp_addr)
         .unwrap_or_else(|e|{ errexit!(e); });
 }
 
@@ -123,7 +124,7 @@ fn http_ops(request: &mut iron::Request) -> IronResult<Response> {
 fn tcp_serv() {
     let tdpool = ThreadPool::new(::num_cpus::get());
 
-    let listener = TcpListener::bind(&CONF.sv_serv_addr)
+    let listener = TcpListener::bind(&CONF.sv_http_addr)
         .unwrap_or_else(|e|{ errexit!(e); });
 
     loop {
