@@ -92,23 +92,32 @@ fn jsonrpc_serv() {
 }
 
 fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) -> TcpStream {
-    let mut buf = String::new();
-    loop {
-        match socket.read_to_string(&mut buf) {
-            Ok(cnt) if 0 == cnt => break,
-            Err(e) => {
-                let errmsg = "{\"err\":\"socket read err\",\"id\":-1}";
-                socket.write(errmsg.as_bytes()).unwrap_or_default();
+    let mut buf = Vec::new();
+    if let Err(e) = socket.read_to_end(&mut buf) {
+        let errmsg = "{\"err\":\"socket read err\",\"id\":-1}";
+        socket.write(errmsg.as_bytes()).unwrap_or_default();
 
-                err!(e);
-                return socket;
-            },
-            _ => continue
-        }
+        err!(e);
+        return socket;
     }
 
+    // === TMP USE === to delete
+    //loop {
+    //    match socket.read(&mut buf) {
+    //        Ok(cnt) if 0 < cnt => break,
+    //        Err(e) => {
+    //            let errmsg = "{\"err\":\"socket read err\",\"id\":-1}";
+    //            socket.write(errmsg.as_bytes()).unwrap_or_default();
+
+    //            err!(e);
+    //            return socket;
+    //        },
+    //        _ => continue
+    //    }
+    //}
+
     let req: Req;
-    match serde_json::from_str(&buf) {
+    match serde_json::from_slice(&buf) {
         Ok(r) => req = r,
         Err(e) => {
             let errmsg = "{\"err\":\"json parse err\",\"id\":-1}";
