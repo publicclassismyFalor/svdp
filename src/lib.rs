@@ -97,7 +97,7 @@ struct Params {
  * http service *
  ****************/
 fn http_serv() {
-    Iron::new(http_ops).http(&CONF.sv_tcp_addr)
+    Iron::new(http_ops).http(&CONF.sv_http_addr)
         .unwrap_or_else(|e|{ errexit!(e); });
 }
 
@@ -113,7 +113,7 @@ fn http_ops(request: &mut iron::Request) -> IronResult<Response> {
             return Ok( Response::with( (status::Ok, format!("{}\"result\":{},\"id\":{}{}" , "{", res, id, "}").as_bytes()) ) );
         },
         Err(e) => {
-            return Err(iron::IronError::new(Error::from(ErrorKind::Other), (status::InternalServerError, e)));
+            return Err(iron::IronError::new(Error::from(ErrorKind::Other), (status::NotFound, e)));
         }
     }
 }
@@ -124,7 +124,7 @@ fn http_ops(request: &mut iron::Request) -> IronResult<Response> {
 fn tcp_serv() {
     let tdpool = ThreadPool::new(::num_cpus::get());
 
-    let listener = TcpListener::bind(&CONF.sv_http_addr)
+    let listener = TcpListener::bind(&CONF.sv_tcp_addr)
         .unwrap_or_else(|e|{ errexit!(e); });
 
     loop {
