@@ -19,6 +19,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::io::{Error, ErrorKind};
 use std::net::{TcpStream, TcpListener};
+use std::time::Duration;
 
 /* async http serv */
 use iron::prelude::*;
@@ -131,6 +132,7 @@ fn tcp_serv() {
         match listener.accept() {
             Ok((socket, _peeraddr)) => {
                 tdpool.execute(move|| {
+                    socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
                     tcp_ops(socket);
                 });
             },
