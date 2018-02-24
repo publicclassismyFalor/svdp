@@ -170,7 +170,7 @@ fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
         err!(e);
     }
 
-    socket.shutdown(Shutdown::Write).unwrap_or_default();
+    //socket.shutdown(Shutdown::Both).unwrap_or_default();
     return;
 }
 
