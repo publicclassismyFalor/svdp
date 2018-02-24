@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 export zPgPath=${HOME}/.____PostgreSQL
 
@@ -6,40 +6,53 @@ zProjPath=$1  # rust project root path
 zSystemd=$2
 zPostgresVersion="10.2"
 
-if [ "" == ${zProjPath} ]; then
+if [[ "" == ${zProjPath} ]]; then
     printf "\033[31;01mprojPath missing !!\033[00m\n"
     exit 1
 fi
 
 cd ${zProjPath}
-if [ 0 -ne $? ]; then
+if [[ 0 -ne $? ]]; then
     printf "\033[31;01mprojPath invalid: ${zProjPath} !!\033[00m\n"
     exit 1
 fi
 
-if [ 0 == `\ls ${HOME}/.pgpass | wc -l` ]; then
+if [[ 0 == `\ls ${HOME}/.pgpass | wc -l` ]]; then
     echo "# hostname:port:database:username:password" > ${HOME}/.pgpass
 fi
 chmod 0600 ${HOME}/.pgpass
 
+# build rust
+source ~/.cargo/env 2>/dev/null
+if [[ 0 == `which cargo | wc -l` ]]; then
+    curl https://sh.rustup.rs -sSf | sh
+    source ~/.cargo/env
+    if [[ 0 -ne $? ]]; then
+        echo "rust_env init err!"
+        exit 1
+    fi
+fi
+
 # build postgreSQL
-if [ 0 -eq `\ls -d ${zPgPath} | wc -l` ]; then
+if [[ 0 -eq `\ls -d ${zPgPath} | wc -l` ]]; then
     cd ${HOME}
-    if [ 0 -eq `\ls postgresql-${zPostgresVersion}.tar.bz2 | wc -l` ]; then
+    if [[ 0 -eq `\ls postgresql-${zPostgresVersion}.tar.bz2 | wc -l` ]]; then
         wget https://ftp.postgresql.org/pub/source/v${zPostgresVersion}/postgresql-${zPostgresVersion}.tar.bz2
     fi
 
     tar -xf postgresql-${zPostgresVersion}.tar.bz2
-    if [ 0 -ne $? ]; then
+    if [[ 0 -ne $? ]]; then
         printf "\033[31;01mfailed: tar -xf postgresql-${zPostgresVersion}.tar.bz2 !!\033[00m\n"
         exit 1
     fi
 
     cd postgresql-${zPostgresVersion}
-    if [ "" == ${zSystemd} ]; then
-        ./configure --prefix=${zPgPath}
-    else
+    if [[ "" != ${zSystemd} ]]; then
         ./configure --prefix=${zPgPath} --with-systemd
+    elif [[ 1 -eq `pidof systemd` ]]; then
+        ./configure --prefix=${zPgPath} --with-systemd
+    else
+        ./configure --prefix=${zPgPath}
     fi
 
     make -j `cat /proc/cpuinfo| grep processor | wc -l` && make install
@@ -100,7 +113,7 @@ ${zPgBinPath}/createdb -O `whoami` svdp
 killall svdp
 cd ${zProjPath}/conf
 nohup cargo run --release &
-if [ 0 -ne $? ]; then
+if [[ 0 -ne $? ]]; then
     printf "\033[31;01msvdp start failed !!\033[00m\n"
     exit 1
 fi
