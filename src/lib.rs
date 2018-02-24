@@ -14,8 +14,12 @@ mod dp;
 
 use std::thread;
 use std::fs::File;
-use std::io::{Read, Error};
-use std::net::{TcpListener, TcpStream};
+use std::io::{Read, Write};
+use std::net::{TcpStream, TcpListener};
+
+use threadpool::ThreadPool;
+use r2d2::Pool;
+use r2d2_postgres::{TlsMode, PostgresConnectionManager};
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -29,29 +33,147 @@ lazy_static! {
 
 /* parse config file */
 fn conf_parse() -> Config {
-    let mut file = File::open("major.toml").unwrap_or_else(|e| { errexit!(e); });
-
     let mut content = String::new();
-    file.read_to_string(&mut content).unwrap_or_else(|e| { errexit!(e); }); 
-    toml::from_str::<Config>(&content).unwrap_or_else(|e| { errexit!(e); })
+
+    File::open("major.toml")
+        .unwrap_or_else(|e|{ errexit!(e); })
+        .read_to_string(&mut content)
+        .unwrap_or_else(|e|{ errexit!(e); });
+
+    toml::from_str::<Config>(&content)
+        .unwrap_or_else(|e|{ errexit!(e); })
 }
 
 /* json rpc service on tcp */
-fn jsonrpc_serv() {
-    let listener = TcpListener::bind(&CONF.sv_serv_addr).unwrap_or_else(|e| { errexit!(e); });
+#[derive(Serialize, Deserialize)]
+struct Req {
+    method: String,
+    params: Params,
+    id: i32,
+}
 
-    for stream in listener.incoming() {
-        // TODO: use thread pool
-        worker(stream);
+#[derive(Serialize, Deserialize)]
+struct Params {
+    instance_id: Option<String>,
+    ts_range: [i32; 2],
+}
+
+/// REQ example:
+/// {"method":"sv_ecs","params":{"instance_id":"i-123456","ts_range":[15000000,1600000]},"id":0}
+///
+/// RES example:
+/// {"result":["ts":1519379068,"data":{...}],"id":0}
+/// OR
+/// {"err":"...","id":0}
+fn jsonrpc_serv() {
+    let tdpool = ThreadPool::new(20);
+
+    let pgmg = PostgresConnectionManager::new(CONF.pg_login_url.as_str(), TlsMode::None)
+        .unwrap_or_else(|e|{ errexit!(e); });
+    let pgpool = r2d2::Pool::builder()
+        .max_size(20)
+        .build(pgmg)
+        .unwrap_or_else(|e|{ errexit!(e); });
+
+    let listener = TcpListener::bind(&CONF.sv_serv_addr)
+        .unwrap_or_else(|e|{ errexit!(e); });
+
+    loop {
+        match listener.accept() {
+            Ok((socket, _peeraddr)) => {
+                let pgpool = pgpool.clone();
+                tdpool.execute(move|| {
+                    worker(socket, pgpool);
+                });
+            },
+
+            Err(e) => err!(e)
+        }
     }
 }
 
-fn worker(stream: Result<TcpStream, Error>) {
-    // TODO
+fn worker(mut socket: TcpStream, pgpool: Pool<PostgresConnectionManager>) {
+    let mut buf = String::new();
+    loop {
+        match socket.read_to_string(&mut buf) {
+            Ok(cnt) if 0 == cnt => break,
+            Err(e) => {
+                err!(e);
+                return;
+            },
+            _ => continue
+        }
+    }
+
+    let req: Req;
+    match serde_json::from_str(&buf) {
+        Ok(r) => req = r,
+        Err(e) => {
+            let errmsg = "{\"err\":\"json parse err\",\"id\":-1}";
+            socket.write(errmsg.as_bytes()).unwrap_or_default();
+
+            err!(e);
+            return;
+        }
+    }
+
+    let pgconn;
+    match pgpool.get() {
+        Ok(conn) => pgconn = conn,
+        Err(e) => {
+            let errmsg = format!("{}\"err\":\"db_conn_pool busy\",\"id\":{}{}", "{", req.id, "}");
+            socket.write(errmsg.as_bytes()).unwrap_or_default();
+
+            err!(e);
+            return;
+        }
+    }
+
+    let querysql;
+    match req.params.instance_id {
+        None => {
+            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
+                               (SELECT ts, sv FROM {} WHERE ts >= {} AND ts <= {}) d", req.method, req.params.ts_range[0], req.params.ts_range[1]);
+        },
+        Some(insid) => {
+            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
+                               (SELECT ts, sv->'{}' AS sv FROM {} WHERE ts >= {} AND ts <= {}) d",
+                               insid, req.method, req.params.ts_range[0], req.params.ts_range[1]);
+        }
+    }
+
+    let qrow;
+    match pgconn.query(querysql.as_str(), &[]) {
+        Ok(q) => {
+            qrow = q;
+        },
+        Err(e) => {
+            let errmsg = format!("{}\"err\":\"db query err\",\"id\":{}{}", "{", req.id, "}");
+            socket.write(errmsg.as_bytes()).unwrap_or_default();
+
+            err!(e);
+            return;
+        }
+    }
+
+    let qres = qrow.get(0);
+    let res: String;
+    match qres.get(0) {
+        Some(r) => res = r,
+        None => {
+            let errmsg = format!("{}\"err\":\"empty result\",\"id\":{}{}", "{", req.id, "}");
+            socket.write(errmsg.as_bytes()).unwrap_or_default();
+
+            err!("empty result");
+            return;
+        }
+    }
+
+    //let res = res.replace("\": ", "\":");
+    if let Err(e) = socket.write(format!("{}\"result\":{},\"id\":{}{}" , "{", res, req.id, "}").as_bytes()) {
+        err!(e);
+    }
 }
-
-
-
 
 pub fn run() {
     thread::spawn(|| jsonrpc_serv());
