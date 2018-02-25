@@ -19,6 +19,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::io::{Error, ErrorKind};
 use std::net::{TcpStream, TcpListener};
+use std::time::Duration;
 
 /* async http serv */
 use iron::prelude::*;
@@ -72,12 +73,11 @@ pub fn run() {
     dp::go();
 }
 
-
 /// REQ example:
-/// {"method":"sv_ecs","params":{"instance_id":"i-123456","ts_range":[15000000,1600000]},"id":0}
+/// {"method":"sv_ecs","params":{"item":["disk","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600},"id":0}
 ///
 /// RES example:
-/// {"result":["ts":1519379068,"data":{...}],"id":0}
+/// {"result":[[1519530310,10],...,[1519530390,20]],"id":0}
 /// OR
 /// {"err":"...","id":0}
 #[derive(Serialize, Deserialize)]
@@ -89,8 +89,10 @@ struct Req {
 
 #[derive(Serialize, Deserialize)]
 struct Params {
-    instance_id: Option<String>,
+    item: [Option<String>; 2],
+    instance_id: String,
     ts_range: [i32; 2],
+    interval: Option<i32>,
 }
 
 /****************
@@ -131,6 +133,7 @@ fn tcp_serv() {
         match listener.accept() {
             Ok((socket, _peeraddr)) => {
                 tdpool.execute(move|| {
+                    socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
                     tcp_ops(socket);
                 });
             },
@@ -184,18 +187,30 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
         }
     }
 
-    let querysql;
-    match req.params.instance_id {
-        None => {
-            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
-                               (SELECT ts, sv FROM {} WHERE ts >= {} AND ts <= {}) d", req.method, req.params.ts_range[0], req.params.ts_range[1]);
+    let queryfilter;
+    match (&req.params.item[0], &req.params.item[1]) {
+        (&Some(ref item), &None) => {
+            queryfilter = format!("'{}{},{}{}'", "{", req.params.instance_id, item, "}");
         },
-        Some(insid) => {
-            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
-                               (SELECT ts, sv->'{}' AS sv FROM {} WHERE ts >= {} AND ts <= {}) d",
-                               insid, req.method, req.params.ts_range[0], req.params.ts_range[1]);
+        (&Some(ref submethod), &Some(ref item))=> {
+            queryfilter = format!("'{}{},{},{}{}'", "{", req.params.instance_id, submethod, item, "}");
+        },
+        (&None, _) => {
+            err!("no item specified");
+            return Err(format!("{}\"err\":\"no item specified\",\"id\":{}{}", "{", req.id, "}"));
         }
     }
+
+    let itvfilter;
+    if let Some(itv) = req.params.interval {
+        itvfilter = format!("AND (ts % {}) = 0", itv);
+    } else {
+        itvfilter = "".to_owned();
+    }
+
+    let querysql = format!("SELECT array_to_json(array_agg(d))::text FROM
+                           (SELECT json_build_array(ts, sv#>{}) FROM {} WHERE ts >= {} AND ts <= {} {}) d",
+                           queryfilter, req.method, req.params.ts_range[0], req.params.ts_range[1], itvfilter);
 
     let qrow;
     match pgconn.query(querysql.as_str(), &[]) {
