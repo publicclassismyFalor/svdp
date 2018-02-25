@@ -75,7 +75,7 @@ pub fn run() {
 
 
 /// REQ example:
-/// {"method":"sv_ecs","params":{"item":["disk","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000]},"id":0}
+/// {"method":"sv_ecs","params":{"item":["disk","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600},"id":0}
 ///
 /// RES example:
 /// {"result":[[1519530310,10],...,[1519530390,20]],"id":0}
@@ -93,6 +93,7 @@ struct Params {
     item: [Option<String>; 2],
     instance_id: String,
     ts_range: [i32; 2],
+    interval: Option<i32>,
 }
 
 /****************
@@ -201,9 +202,16 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
         }
     }
 
+    let itvfilter;
+    if let Some(itv) = req.params.interval {
+        itvfilter = format!("AND (ts % {}) = 0", itv);
+    } else {
+        itvfilter = "".to_owned();
+    }
+
     let querysql = format!("SELECT array_to_json(array_agg(d))::text FROM
-                           (SELECT json_build_array(ts, sv#>{}) FROM {} WHERE ts >= {} AND ts <= {}) d",
-                           queryfilter, req.method, req.params.ts_range[0], req.params.ts_range[1]);
+                           (SELECT json_build_array(ts, sv#>{}) FROM {} WHERE ts >= {} AND ts <= {} {}) d",
+                           queryfilter, req.method, req.params.ts_range[0], req.params.ts_range[1], itvfilter);
 
     let qrow;
     match pgconn.query(querysql.as_str(), &[]) {
