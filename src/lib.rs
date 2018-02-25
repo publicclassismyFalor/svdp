@@ -75,10 +75,11 @@ pub fn run() {
 
 
 /// REQ example:
-/// {"method":"sv_ecs","params":{"instance_id":"i-123456","ts_range":[15000000,1600000]},"id":0}
+/// {"method":"sv_ecs","params":{"item":"cpu","instance_id":"i-77777","ts_range":[15000000,1600000]},"id":0}
 ///
 /// RES example:
-/// {"result":["ts":1519379068,"data":{...}],"id":0}
+/// {"result":[[1519379068,10]],"id":0}
+/// {"result":[{"/dev/vda1":[[1519379068,10]]},{...}],"id":0}
 /// OR
 /// {"err":"...","id":0}
 #[derive(Serialize, Deserialize)]
@@ -90,7 +91,8 @@ struct Req {
 
 #[derive(Serialize, Deserialize)]
 struct Params {
-    instance_id: Option<String>,
+    item: String,
+    instance_id: String,
     ts_range: [i32; 2],
 }
 
@@ -186,18 +188,10 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
         }
     }
 
-    let querysql;
-    match req.params.instance_id {
-        None => {
-            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
-                               (SELECT ts, sv FROM {} WHERE ts >= {} AND ts <= {}) d", req.method, req.params.ts_range[0], req.params.ts_range[1]);
-        },
-        Some(insid) => {
-            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
+    // TODO 
+    let querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
                                (SELECT ts, sv->'{}' AS sv FROM {} WHERE ts >= {} AND ts <= {}) d",
-                               insid, req.method, req.params.ts_range[0], req.params.ts_range[1]);
-        }
-    }
+                               req.params.instance_id, req.method, req.params.ts_range[0], req.params.ts_range[1]);
 
     let qrow;
     match pgconn.query(querysql.as_str(), &[]) {
