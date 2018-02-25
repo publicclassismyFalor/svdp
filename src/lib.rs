@@ -75,7 +75,7 @@ pub fn run() {
 
 
 /// REQ example:
-/// {"method":"sv_ecs","params":{"item":"cpu","instance_id":"i-77777","ts_range":[15000000,1600000]},"id":0}
+/// {"method":"sv_ecs","params":{"item":["disk","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000]},"id":0}
 ///
 /// RES example:
 /// {"result":[[1519379068,10]],"id":0}
@@ -91,7 +91,7 @@ struct Req {
 
 #[derive(Serialize, Deserialize)]
 struct Params {
-    item: String,
+    item: [Option<String>; 2],
     instance_id: String,
     ts_range: [i32; 2],
 }
@@ -189,9 +189,27 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
     }
 
     // TODO 
-    let querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
+    let querysql;
+    match (&req.params.item[0], &req.params.item[1]) {
+        (&None, _) => {
+            // 某实例的全部指标
+            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
                                (SELECT ts, sv->'{}' AS sv FROM {} WHERE ts >= {} AND ts <= {}) d",
                                req.params.instance_id, req.method, req.params.ts_range[0], req.params.ts_range[1]);
+        },
+        (&Some(ref item), &None) => {
+            // 某实例的单个指标：无子项目
+            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
+                               (SELECT ts, {}, sv->'{}' AS sv FROM {} WHERE ts >= {} AND ts <= {}) d",
+                               item, req.params.instance_id, req.method, req.params.ts_range[0], req.params.ts_range[1]);
+        },
+        (&Some(ref submethod), &Some(ref item))=> {
+            // 某实例的单个指标：有子项目
+            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
+                               (SELECT ts, {}, {}, sv->'{}' AS sv FROM {} WHERE ts >= {} AND ts <= {}) d",
+                               submethod, item, req.params.instance_id, req.method, req.params.ts_range[0], req.params.ts_range[1]);
+        }
+    }
 
     let qrow;
     match pgconn.query(querysql.as_str(), &[]) {
