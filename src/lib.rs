@@ -78,8 +78,7 @@ pub fn run() {
 /// {"method":"sv_ecs","params":{"item":["disk","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000]},"id":0}
 ///
 /// RES example:
-/// {"result":[[1519379068,10]],"id":0}
-/// {"result":[{"/dev/vda1":[[1519379068,10]]},{...}],"id":0}
+/// {"result":[[1519530310,10],...,[1519530390,20]],"id":0}
 /// OR
 /// {"err":"...","id":0}
 #[derive(Serialize, Deserialize)]
@@ -188,28 +187,23 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
         }
     }
 
-    // TODO 
-    let querysql;
+    let queryfilter;
     match (&req.params.item[0], &req.params.item[1]) {
-        (&None, _) => {
-            // 某实例的全部指标
-            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
-                               (SELECT ts, sv->'{}' AS sv FROM {} WHERE ts >= {} AND ts <= {}) d",
-                               req.params.instance_id, req.method, req.params.ts_range[0], req.params.ts_range[1]);
-        },
         (&Some(ref item), &None) => {
-            // 某实例的单个指标：无子项目
-            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
-                               (SELECT ts, {}, sv->'{}' AS sv FROM {} WHERE ts >= {} AND ts <= {}) d",
-                               item, req.params.instance_id, req.method, req.params.ts_range[0], req.params.ts_range[1]);
+            queryfilter = format!("'{}{},{}{}'", "{", req.params.instance_id, item, "}");
         },
         (&Some(ref submethod), &Some(ref item))=> {
-            // 某实例的单个指标：有子项目
-            querysql = format!("SELECT array_to_json(array_agg(row_to_json(d)))::text FROM
-                               (SELECT ts, {}, {}, sv->'{}' AS sv FROM {} WHERE ts >= {} AND ts <= {}) d",
-                               submethod, item, req.params.instance_id, req.method, req.params.ts_range[0], req.params.ts_range[1]);
+            queryfilter = format!("'{}{},{},{}{}'", "{", req.params.instance_id, submethod, item, "}");
+        },
+        (&None, _) => {
+            err!("no item specified");
+            return Err(format!("{}\"err\":\"no item specified\",\"id\":{}{}", "{", req.id, "}"));
         }
     }
+
+    let querysql = format!("SELECT array_to_json(array_agg(d))::text FROM
+                           (SELECT json_build_array(ts, sv#>{}) FROM {} WHERE ts >= {} AND ts <= {}) d",
+                           queryfilter, req.method, req.params.ts_range[0], req.params.ts_range[1]);
 
     let qrow;
     match pgconn.query(querysql.as_str(), &[]) {
