@@ -224,12 +224,25 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
 
     let qres = qrow.get(0);
     let res: String;
-    match qres.get(0) {
-        Some(r) => res = r,
-        None => {
-            err!("empty result");
-            return Err(format!("{}\"err\":\"empty result\",\"id\":{}{}", "{", req.id, "}"));
+    if let Some(orig) = qres.get(0) {
+        let orig: String = orig;
+        let mut finalres = vec![vec![], vec![]];
+        if let Ok(mut r) = serde_json::from_str::<Vec<[i32; 2]>>(&orig) {
+            r.sort_by(|a, b|a[0].cmp(&b[0]));
+            let len = r.len();
+            for i in 0..len {
+                finalres[0].push(r[i][0]);
+                finalres[1].push(r[i][1]);
+            }
+        } else {
+            err!("server err");
+            return Err(format!("{}\"err\":\"server err\",\"id\":{}{}", "{", req.id, "}"));
         }
+
+        res = serde_json::to_string(&finalres).unwrap();
+    } else {
+        err!("empty result");
+        return Err(format!("{}\"err\":\"empty result\",\"id\":{}{}", "{", req.id, "}"));
     }
 
     Ok((res, req.id))
