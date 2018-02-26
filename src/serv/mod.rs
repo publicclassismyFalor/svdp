@@ -167,7 +167,11 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
     let qrow;
     match pgconn.query(querysql.as_str(), &[]) {
         Ok(q) => {
-            qrow = q;
+            if q.is_empty() {
+                return Ok(("[]".to_owned(), req.id));
+            } else {
+                qrow = q;
+            }
         },
         Err(e) => {
             err!(e);
@@ -197,7 +201,7 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
         res = serde_json::to_string(&finalres).unwrap();
     } else {
         err!("empty result");
-        return Err(format!("{}\"err\":\"empty result\",\"id\":{}{}", "{", req.id, "}"));
+        return Err(format!("{}\"err\":\"server db err\",\"id\":{}{}", "{", req.id, "}"));
     }
 
     Ok((res, req.id))

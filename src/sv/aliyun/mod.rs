@@ -109,11 +109,16 @@ pub fn go() {
     let pgconn = Connection::connect(::CONF.pg_login_url.as_str(), TlsMode::None).unwrap();
     pgconn.execute("CREATE TABLE IF NOT EXISTS sv_meta (last_basestamp int)", &[]).unwrap();
 
-    if let Some(t) = pgconn.query("SELECT last_basestamp FROM sv_meta", &[]).unwrap().get(0).get(0) {
-        let ts: i32 = t;
-        unsafe { BASESTAMP = 1000 * ts as u64; }
-    } else {
+    let qrow = pgconn.query("SELECT last_basestamp FROM sv_meta", &[]).unwrap();
+    if qrow.is_empty() {
         unsafe { BASESTAMP = ts_now() / INTERVAL * INTERVAL - 2 * INTERVAL; }
+    } else {
+        if let Some(qres) = qrow.get(0).get(0) {
+            let ts: i32 = qres;
+            unsafe { BASESTAMP = 1000 * ts as u64; }
+        } else {
+            errexit!("db err");
+        }
     }
 
     let tbsuffix = &["ecs", "slb", "rds", "redis", "memcache", "mongodb"];
