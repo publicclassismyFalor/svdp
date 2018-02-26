@@ -1,7 +1,7 @@
 macro_rules! errexit {
     ($x: expr) => {
         eprintln!("[{}, {}] ==> {}", file!(), line!(), $x);
-        std::process::exit(1);
+        ::std::process::exit(1);
     }
 }
 
