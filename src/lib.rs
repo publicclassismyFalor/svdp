@@ -231,8 +231,10 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
             r.sort_by(|a, b|a.0.cmp(&b.0));
             let len = r.len();
             for i in 0..len {
-                finalres[0].push(r[i].0);
-                finalres[1].push(if None == r[i].1 {0} else {r[i].1.unwrap()});
+                if let Some(v) = r[i].1 {
+                    finalres[0].push(r[i].0);
+                    finalres[1].push(v);
+                }
             }
         } else {
             err!("server err");
