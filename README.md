@@ -20,38 +20,76 @@
 - params 中的 interval 用于指定数据样本的时间间隔，可以为任意能被 15 整除的非负整数，单位：秒；
 - id 是由请求方指定的，会原样返回。    
 
+## item 说明
+#### 注：所有以 ratio 为后缀的指标，含义均为 使用率百分值 * 1000
+    
 #### sv_ecs
 ```
-{
-  "i-22vb6jnml": {
-    "tcp": 57,
-    "disk": {
-      "/dev/vda1": {
-        "rd": 103,
-        "wr": 12,
-        "ratio": 100,  // 磁盘使用率百分值 * 1000
-        "rdtps": 0,
-        "wrtps": 0
-      }
-    },
-    "netif": {
-      "10.45.65.169": {
-        "rd": 0,
-        "wr": 0,
-        "rdtps": 0,
-        "wrtps": 0
-      },
-      "47.88.189.118": {
-        "rd": 1,
-        "wr": 5,
-        "rdtps": 11,
-        "wrtps": 8
-      }
-    },
-    "load5m": 30,  // 原始值 * 1000
-    "load15m": 10,  // 同上
-    "cpu_ratio": 85,  // 使用率百分值 * 1000
-    "mem_ratio": 184  // 同上
+  "cpu_ratio": 85
+  "mem_ratio": 184
+  "load5m": 30  // 原始值 * 1000
+  "load15m": 10  // 同上
+  "tcp": 57
+
+  "disk": {
+    "/dev/vda1": {
+      "rd": 103  // 单位：KB
+      "wr": 12  // 单位：KB
+      "ratio": 100
+      "rdtps": 0
+      "wrtps": 0
+    }
   }
-}
+
+  "netif": {
+    "47.88.189.118": {
+      "rd": 1  // 单位：KB
+      "wr": 5  // 单位：KB
+      "rdtps": 11
+      "wrtps": 8
+    }
+  }
+```
+#### sv_slb
+```
+  "rd": 0  // 单位：KB
+  "wr": 0  // 单位：KB
+  "conn": 0  // 连接总数
+  "rdtps": 1
+  "wrtps": 1
+```
+#### sv_rds
+```
+  "delay": 0  // 单位：秒
+  "cpu_ratio": 0
+  "mem_ratio": 93
+  "conn_ratio": 0
+  "disk_ratio": 29
+  "disktps_ratio": 0
+```
+#### sv_mongodb
+```
+  "rd": 4817  // 单位：KB
+  "wr": 30746  // 单位：KB
+  "cpu_ratio": 45
+  "mem_ratio": 413
+  "conn_ratio": 2
+  "disk_ratio": 327
+  "disktps_ratio": 0
+```
+#### sv_memcache
+```
+  "rd": 19  // 单位：KB
+  "wr": 126 // 单位：KB
+  "cpu_ratio": 13
+  "mem_ratio": 720
+  "conn_ratio": 0
+```
+#### sv_redis
+```
+  "rd": 19  // 单位：KB
+  "wr": 126 // 单位：KB
+  "cpu_ratio": 13
+  "mem_ratio": 720
+  "conn_ratio": 0
 ```
