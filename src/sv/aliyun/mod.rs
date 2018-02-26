@@ -194,6 +194,9 @@ pub fn go() {
 
             basestamp += INTERVAL;
             unsafe { BASESTAMP = basestamp; }
+
+            pgconn.execute("DELETE FROM sv_meta", &[]).unwrap();
+            pgconn.execute("INSERT INTO sv_meta VALUES ($1)", &[&basestamp.to_string()]).unwrap();
         }
 
         thread::sleep(Duration::from_millis(INTERVAL));
