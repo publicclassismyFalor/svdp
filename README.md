@@ -2,7 +2,7 @@
 ## 使用基于 tcp 的 jsonrpc 2.0 风格，样例如下：
     
 #### 无子项目的请求:
-{"method":"sv_ecs","params":{"item":["cpu"],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600},"id":0}
+{"method":"sv_ecs","params":{"item":["cpu",null],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600},"id":0}
 #### 有子项目的请求:
 {"method":"sv_ecs","params":{"item":["disk","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600},"id":0}
 
