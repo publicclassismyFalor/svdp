@@ -208,8 +208,7 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
         itvfilter = "".to_owned();
     }
 
-    let querysql = format!("SELECT array_to_json(array_agg(d))::text FROM
-                           (SELECT json_build_array(ts, sv#>{}) FROM {} WHERE ts >= {} AND ts <= {} {}) d",
+    let querysql = format!("SELECT array_to_json(array_agg(json_build_array(ts, sv#>{})))::text FROM {} WHERE ts >= {} AND ts <= {} {}",
                            queryfilter, req.method, req.params.ts_range[0], req.params.ts_range[1], itvfilter);
 
     let qrow;
