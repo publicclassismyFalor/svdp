@@ -39,7 +39,8 @@ struct Params {
  * http service *
  ****************/
 pub fn http_serv() {
-    Iron::new(http_ops).http(&CONF.sv_http_addr)
+    let addr = CONF.sv_http_addr.clone();
+    Iron::new(http_ops).http(&addr.unwrap())
         .unwrap_or_else(|e|{ errexit!(e); });
 }
 
@@ -66,7 +67,8 @@ fn http_ops(request: &mut Request) -> IronResult<Response> {
 pub fn tcp_serv() {
     let tdpool = ThreadPool::new(::num_cpus::get());
 
-    let listener = TcpListener::bind(&CONF.sv_tcp_addr)
+    let addr = CONF.sv_tcp_addr.clone();
+    let listener = TcpListener::bind(&addr.unwrap())
         .unwrap_or_else(|e|{ errexit!(e); });
 
     loop {

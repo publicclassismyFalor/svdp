@@ -25,8 +25,9 @@ use r2d2_postgres::{TlsMode, PostgresConnectionManager};
 #[derive(Deserialize)]
 pub struct Config {
     pg_login_url: String,  // UNIX DOMAIN SOCKET: "postgres://jack@%2Fhome%2Fjack/svdp"
-    sv_tcp_addr: String,  // "[::1]:20000"
-    sv_http_addr: String,  // "[::1]:30000"
+
+    sv_tcp_addr: Option<String>,  // "[::1]:30000"
+    sv_http_addr: Option<String>,  // "[::1]:30001"
 }
 
 lazy_static! {
@@ -59,8 +60,13 @@ fn conf_parse() -> Config {
 }
 
 pub fn run() {
-    thread::spawn(|| serv::http_serv());
-    thread::spawn(|| serv::tcp_serv());
+    if None != CONF.sv_http_addr {
+        thread::spawn(|| serv::http_serv());
+    }
+
+    if None != CONF.sv_tcp_addr {
+        thread::spawn(|| serv::tcp_serv());
+    }
 
     sv::go();
     dp::go();
