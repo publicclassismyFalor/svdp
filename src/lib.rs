@@ -74,7 +74,7 @@ pub fn run() {
 }
 
 /// REQ example:
-/// {"method":"sv_ecs","params":{"item":["disk","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600},"id":0}
+/// {"method":"sv_ecs","params":{"item":["disk","/dev/vda1","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600},"id":0}
 ///
 /// RES example:
 /// {"result":[[1519530310,10],...,[1519530390,20]],"id":0}
@@ -89,7 +89,7 @@ struct Req {
 
 #[derive(Serialize, Deserialize)]
 struct Params {
-    item: [Option<String>; 2],
+    item: (String, Option<String>, Option<String>),
     instance_id: String,
     ts_range: [i32; 2],
     interval: Option<i32>,
@@ -188,16 +188,16 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
     }
 
     let queryfilter;
-    match (&req.params.item[0], &req.params.item[1]) {
-        (&Some(ref item), &None) => {
+    match req.params.item {
+        (item, None, None) => {
             queryfilter = format!("'{}{},{}{}'", "{", req.params.instance_id, item, "}");
         },
-        (&Some(ref submethod), &Some(ref item))=> {
-            queryfilter = format!("'{}{},{},{}{}'", "{", req.params.instance_id, submethod, item, "}");
+        (submethod, Some(dev), Some(item))=> {
+            queryfilter = format!("'{}{},{},{},{}{}'", "{", req.params.instance_id, submethod, dev, item, "}");
         },
-        (&None, _) => {
-            err!("no item specified");
-            return Err(format!("{}\"err\":\"no item specified\",\"id\":{}{}", "{", req.id, "}"));
+        _ => {
+            err!("invalid item");
+            return Err(format!("{}\"err\":\"invalid item\",\"id\":{}{}", "{", req.id, "}"));
         }
     }
 
