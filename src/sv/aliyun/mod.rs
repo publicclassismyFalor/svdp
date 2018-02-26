@@ -201,7 +201,7 @@ pub fn go() {
             unsafe { BASESTAMP = basestamp; }
 
             pgconn.execute("DELETE FROM sv_meta", &[]).unwrap();
-            pgconn.execute("INSERT INTO sv_meta VALUES ($1)", &[&basestamp.to_string()]).unwrap();
+            pgconn.execute("INSERT INTO sv_meta VALUES ($1)", &[&(basestamp / 1000).to_string()]).unwrap();
         }
 
         thread::sleep(Duration::from_millis(INTERVAL));
