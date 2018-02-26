@@ -22,7 +22,7 @@ pub const CMD: &str = "/tmp/aliyun_cmdb";
 pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
 
 pub static mut BASESTAMP: u64 = 0;
-pub const INTERVAL: u64 = 10 * 60 * 1000;
+pub const INTERVAL: u64 = 5 * 60 * 1000;
 
 pub fn argv_new_base(region: String) -> Vec<String> {
     let mut argv = vec![
@@ -105,9 +105,16 @@ pub trait DATA {
 
 pub fn go() {
     let ts_now = || 1000 * std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-    unsafe { BASESTAMP = ts_now() / INTERVAL * INTERVAL - 2 * INTERVAL; }
 
     let pgconn = Connection::connect(::CONF.pg_login_url.as_str(), TlsMode::None).unwrap();
+    pgconn.execute("CREATE TABLE IF NOT EXISTS sv_meta (last_basestamp int)", &[]).unwrap();
+
+    if let Some(t) = pgconn.query("SELECT last_basestamp FROM sv_meta", &[]).unwrap().get(0).get(0) {
+        let ts: i32 = t;
+        unsafe { BASESTAMP = 1000 * ts as u64; }
+    } else {
+        unsafe { BASESTAMP = ts_now() / INTERVAL * INTERVAL - 2 * INTERVAL; }
+    }
 
     let tbsuffix = &["ecs", "slb", "rds", "redis", "memcache", "mongodb"];
 
