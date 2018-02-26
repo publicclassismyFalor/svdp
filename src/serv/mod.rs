@@ -200,7 +200,7 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
 
         res = serde_json::to_string(&finalres).unwrap();
     } else {
-        err!("empty result");
+        err!("server db err");
         return Err(format!("{}\"err\":\"server db err\",\"id\":{}{}", "{", req.id, "}"));
     }
 
