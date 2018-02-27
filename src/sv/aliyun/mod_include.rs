@@ -135,7 +135,18 @@ fn cmd_exec(mut extra: Vec<String>) -> Result<Vec<u8>, Error> {
     }
 }
 
-// TODO
+/* read from /proc/meminfo */
 pub fn mem_insufficient() -> bool {
-    true
+    let mut content = String::new();
+    File::open("/proc/meminfo").unwrap()
+        .read_to_string(&mut content).unwrap();
+
+    let re = Regex::new(r"\s*(MemAvailable):\s+(\d+)").unwrap();
+    let caps = re.captures(&content).unwrap().get(1).unwrap().as_str();
+
+    if *::MEM_MIN_KEEP > caps.parse::<u64>().unwrap() {
+        true
+    } else {
+        false
+    }
 }

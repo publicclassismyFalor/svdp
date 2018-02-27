@@ -4,13 +4,18 @@ extern crate num_cpus;
 #[macro_use] extern crate lazy_static;
 extern crate colored;
 
+extern crate regex;
+
 extern crate serde;
 extern crate serde_json;
 #[macro_use] extern crate serde_derive;
+
 extern crate r2d2;
 extern crate r2d2_postgres;
 extern crate postgres;
+
 extern crate threadpool;
+
 extern crate iron;
 
 #[macro_use] mod zmacro;
@@ -31,6 +36,20 @@ pub struct Config {
 
     sv_tcp_addr: Option<String>,  // "[::1]:30000"
     sv_http_addr: Option<String>,  // "[::1]:30001"
+}
+
+lazy_static! {
+    pub static ref MEM_MIN_KEEP: u64 =  {
+        let mut content = String::new();
+        File::open("/proc/meminfo").unwrap()
+            .read_to_string(&mut content).unwrap();
+
+        let re = regex::Regex::new(r"\s*(MemTotal):\s+(\d+)").unwrap();
+        let caps = re.captures(&content).unwrap().get(1).unwrap().as_str();
+
+        /* 最少保留 30% 的总内存 */
+        caps.parse::<u64>().unwrap() * 3 / 10
+    };
 }
 
 lazy_static! {
