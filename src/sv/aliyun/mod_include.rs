@@ -142,7 +142,9 @@ pub fn mem_insufficient() -> bool {
         .read_to_string(&mut content).unwrap();
 
     let re = Regex::new(r"\s*(MemAvailable):\s+(\d+)").unwrap();
-    let caps = re.captures(&content).unwrap().get(1).unwrap().as_str();
+
+    /* 匹配结果的索引是从 1 开始的，索引 0 的值指向原始字符串本身 */
+    let caps = re.captures(&content).unwrap().get(2).unwrap().as_str();
 
     if *::MEM_MIN_KEEP > caps.parse::<u64>().unwrap() {
         true
