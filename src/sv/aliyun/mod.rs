@@ -80,7 +80,7 @@ pub fn go() {
         } else {
             for j in 0..6 {
                 let rows = pgconn.query(
-                    &format!("SELECT ts, sv FROM sv_{} WHERE ts > {} AND ts <= {} AND ts % {} = 0 ORDER BY ts DESC",
+                    &format!("SELECT ts, sv::text FROM sv_{} WHERE ts > {} AND ts <= {} AND ts % {} = 0 ORDER BY ts DESC",
                              tbsuffix[j],
                              basestamp / 1000 - (i + 1) * 3600,
                              basestamp / 1000 - i * 3600,
