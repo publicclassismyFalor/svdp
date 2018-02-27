@@ -64,7 +64,7 @@ pub fn go() {
     let mut basestamp;
     unsafe { basestamp = BASESTAMP; }
 
-    let tbsuffix = &["ecs", "slb", "rds", "redis", "memcache", "mongodb"];
+    let tbsuffix = &["ecs", "slb", "rds", "mongodb", "redis", "memcache"];
 
     for tbsuf in tbsuffix {
         pgconn.execute(&format!("CREATE TABLE IF NOT EXISTS sv_{} (ts int, sv jsonb) PARTITION BY RANGE (ts)", tbsuf), &[]).unwrap();
@@ -75,18 +75,49 @@ pub fn go() {
         if mem_insufficient() {
             break;
         } else {
-            let rows = pgconn.query("SELECT ts, sv FROM sv_ecs WHERE ts > $1 AND ts <= $2 AND ts % $3 = 0",
-                                    &[
-                                        &((basestamp / 1000 - (i + 1) * 3600) as i32),
-                                        &((basestamp / 1000 - i * 3600) as i32),
-                                        &(CACHEINTERVAL as i32)
-                                    ]).unwrap();
-            if rows.is_empty() {
-                break;
-            } else {
-                for row in &rows {
-                    //row.get(0);  // ts
-                    //row.get(1);  // sv
+            for j in 0..6 {
+                let rows = pgconn.query(
+                    &format!("SELECT ts, sv FROM sv_{} WHERE ts > {} AND ts <= {} AND ts % {} = 0 ORDER BY ts DESC",
+                             tbsuffix[j],
+                             basestamp / 1000 - (i + 1) * 3600,
+                             basestamp / 1000 - i * 3600,
+                             CACHEINTERVAL),
+                    &[]).unwrap();
+                if rows.is_empty() {
+                    break;
+                } else {
+                    for row in &rows {
+                        let ts: i32 = row.get(0);
+                        let sv: String = row.get(1);
+
+                        match j {
+                            0 => {
+                                let sv: HashMap<String, ecs::Inner> = serde_json::from_str(&sv).unwrap();
+                                CACHE_ECS.write().unwrap().push_front((ts, sv));
+                            },
+                            1 => {
+                                let sv: HashMap<String, slb::Inner> = serde_json::from_str(&sv).unwrap();
+                                CACHE_SLB.write().unwrap().push_front((ts, sv));
+                            },
+                            2 => {
+                                let sv: HashMap<String, rds::Inner> = serde_json::from_str(&sv).unwrap();
+                                CACHE_RDS.write().unwrap().push_front((ts, sv));
+                            },
+                            3 => {
+                                let sv: HashMap<String, mongodb::Inner> = serde_json::from_str(&sv).unwrap();
+                                CACHE_MONGODB.write().unwrap().push_front((ts, sv));
+                            },
+                            4 => {
+                                let sv: HashMap<String, redis::Inner> = serde_json::from_str(&sv).unwrap();
+                                CACHE_REDIS.write().unwrap().push_front((ts, sv));
+                            },
+                            5 => {
+                                let sv: HashMap<String, memcache::Inner> = serde_json::from_str(&sv).unwrap();
+                                CACHE_MEMCACHE.write().unwrap().push_front((ts, sv));
+                            },
+                            _ => errexit!("the fucking world is over!")
+                        }
+                    }
                 }
             }
         }
