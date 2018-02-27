@@ -20,7 +20,7 @@ extern crate iron;
 
 #[macro_use] mod zmacro;
 mod serv;
-mod sv;
+pub mod sv;
 mod dp;
 
 use std::thread;

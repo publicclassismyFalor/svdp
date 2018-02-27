@@ -1,7 +1,9 @@
 use std::io::{Read, Write};
 use std::io::{Error, ErrorKind};
 use std::net::{TcpStream, TcpListener};
+
 use std::time::Duration;
+use ::time::{Timespec, strftime, at};
 
 /* async http serv */
 use iron::prelude::*;
@@ -11,6 +13,7 @@ use threadpool::ThreadPool;
 
 use ::{CONF, DBPOOL};
 use ::serde_json;
+use ::sv::aliyun;
 
 
 /// REQ example:
@@ -20,14 +23,14 @@ use ::serde_json;
 /// {"result":[[1519530310,10],...,[1519530390,20]],"id":0}
 /// OR
 /// {"err":"...","id":0}
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Req {
     method: String,
     params: Params,
     id: i32,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Params {
     item: (String, Option<String>, Option<String>),
     instance_id: String,
@@ -110,33 +113,97 @@ fn tcp_ops(mut socket: TcpStream) {
 /**************************************
  * common worker for http and raw tcp *
  **************************************/
+macro_rules! single_worker {
+    ($req: expr, $myworker: expr) => {
+        let reqid = $req.id;
+
+        let mut res;
+        match $myworker($req) {
+            Ok(r) => res = r,
+            Err(e) => return Err(format!("{}\"err\":\"{}\",\"id\":{}{}", "{", e, reqid, "}"))
+        }
+
+        let finalres = serde_json::to_string(&(res.0, res.1)).unwrap();
+
+        return Ok((finalres, reqid));
+    }
+}
+
+macro_rules! worker {
+    ($req: expr, $queue: expr) => {
+        {
+            match $queue.read().unwrap().get(0) {
+                None => {
+                    single_worker!($req, db_worker);
+                },
+
+                Some(vecdq) if vecdq.0 > $req.params.ts_range[1] => {
+                    single_worker!($req, db_worker);
+                },
+
+                Some(vecdq) if vecdq.0 <= $req.params.ts_range[0] => {
+                    single_worker!($req, cache_worker);
+                },
+
+                _ => {
+                    let reqid = $req.id;
+                    let mut cache_res;
+                    match cache_worker($req.clone()) {
+                        Ok(r) => cache_res = r,
+                        Err(e) => return Err(format!("{}\"err\":\"{}\",\"id\":{}{}", "{", e, reqid, "}"))
+                    }
+
+                    let mut db_res;
+                    match db_worker($req) {
+                        Ok(r) => db_res = r,
+                        Err(e) => return Err(format!("{}\"err\":\"{}\",\"id\":{}{}", "{", e, reqid, "}"))
+                    }
+
+                    let finalres = serde_json::to_string(
+                            &(db_res.0.append(&mut cache_res.0), db_res.1.append(&mut cache_res.1))
+                        ).unwrap();
+
+                    return Ok((finalres, reqid));
+                }
+            }
+        }
+    }
+}
+
 fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
     let req: Req;
     match serde_json::from_slice(body) {
         Ok(r) => req = r,
         Err(e) => {
             err!(e);
-            return Err("{\"err\":\"json parse err\",\"id\":-1}".to_owned());
+            return Err(r#"{"err":"json parse err","id":-1}"#.to_owned());
         }
     }
 
-    /*
-     * cache 能够满足用户请求的
-     * 时间区间与间隔要求的情况，
-     * 直接从缓存中提取，不查询 DB
-     */
-    // if 9999999999 <= req.params.ts_range[0]
-    //     && None != req.params.interval
-    //     && 5 * 60 <= req.params.interval.unwrap() {
-    //         return cache_worker(req);
-    // }
+    match req.method.as_str() {
+        "sv_ecs" => worker!(req, aliyun::CACHE_ECS),
+        "sv_slb" => worker!(req, aliyun::CACHE_SLB),
+        "sv_rds" => worker!(req, aliyun::CACHE_RDS),
+        "sv_mongodb" => worker!(req, aliyun::CACHE_MONGODB),
+        "sv_redis" => worker!(req, aliyun::CACHE_REDIS),
+        "sv_memcache" => worker!(req, aliyun::CACHE_MEMCACHE),
+        _ => errexit!("the fucking world is over!")
+    }
+}
 
+// get data from memory cache
+fn cache_worker(req: Req) -> Result<(Vec<String>, Vec<i32>), String> {
+    Ok((vec![], vec![]))
+}
+
+// get data from postgres
+fn db_worker(req: Req) -> Result<(Vec<String>, Vec<i32>), String> {
     let pgconn;
     match DBPOOL.clone().get() {
         Ok(conn) => pgconn = conn,
         Err(e) => {
             err!(e);
-            return Err(format!("{}\"err\":\"db_conn_pool busy\",\"id\":{}{}", "{", req.id, "}"));
+            return Err("db_conn_pool busy".to_owned());
         }
     }
 
@@ -149,8 +216,8 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
             queryfilter = format!("'{}{},{},{},{}{}'", "{", req.params.instance_id, submethod, dev, item, "}");
         },
         _ => {
-            err!("invalid item");
-            return Err(format!("{}\"err\":\"invalid item\",\"id\":{}{}", "{", req.id, "}"));
+            err!("");
+            return Err("invalid item".to_owned());
         }
     }
 
@@ -168,49 +235,44 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
     match pgconn.query(querysql.as_str(), &[]) {
         Ok(q) => {
             if q.is_empty() {
-                return Ok(("[]".to_owned(), req.id));
+                return Ok((vec![], vec![]));
             } else {
                 rows = q;
             }
         },
         Err(e) => {
             err!(e);
-            return Err(format!("{}\"err\":\"db query err\",\"id\":{}{}", "{", req.id, "}"));
+            return Err("db query err".to_owned());
         }
     }
 
+    let mut final_k = vec![];
+    let mut final_v = vec![];
+
     let row = rows.get(0);
-    let res: String;
     if let Some(orig) = row.get(0) {
         let orig: String = orig;
-        let mut finalres = (vec![], vec![]);
         if let Ok(mut r) = serde_json::from_str::<Vec<(i64, Option<i32>)>>(&orig) {
             r.sort_by(|a, b|a.0.cmp(&b.0));
             let len = r.len();
             for i in 0..len {
                 if let Some(v) = r[i].1 {
-                    // ** 需要 strftime 形式的时间？ **
-                    // use ::time::{Timespec, strftime, at};
-                    // finalres.0.push(strftime("%m-%d %H:%M:%S", &at(Timespec::new(r[i].0, 0))).unwrap_or("".to_owned()));
-                    finalres.0.push(r[i].0);
-                    finalres.1.push(v);
+                    //final_k.push(r[i].0);
+                    final_k.push(
+                        strftime("%m-%d %H:%M:%S", &at(Timespec::new(r[i].0, 0)))
+                        .unwrap_or("".to_owned())
+                        );
+                    final_v.push(v);
                 }
             }
         } else {
-            err!("server err");
-            return Err(format!("{}\"err\":\"server err\",\"id\":{}{}", "{", req.id, "}"));
+            err!("");
+            return Err("server err".to_owned());
         }
-
-        res = serde_json::to_string(&finalres).unwrap();
     } else {
-        err!("server db err");
-        return Err(format!("{}\"err\":\"server db err\",\"id\":{}{}", "{", req.id, "}"));
+        err!("");
+        return Err("server db err".to_owned());
     }
 
-    Ok((res, req.id))
+    Ok((final_k, final_v))
 }
-
-// TODO
-// fn cache_worker(req: Req) -> Result<(String, i32), String> {
-//     Ok(("".to_owned(), 0))
-// }
