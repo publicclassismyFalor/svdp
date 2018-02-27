@@ -28,7 +28,7 @@ pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNk
 
 pub static mut BASESTAMP: u64 = 0;
 pub const INTERVAL: u64 = 5 * 60 * 1000;
-pub const CACHEINTERVAL: u64 = 5 * 60;
+pub const CACHEINTERVAL: u64 = INTERVAL / 1000;  // 与 INTERVAL 同步，确保每次只取一条数据，免去排序的麻烦
 
 type Ecs = Arc<RwLock<VecDeque<(i32, HashMap<String, ecs::Inner>)>>>;
 type Slb = Arc<RwLock<VecDeque<(i32, HashMap<String, slb::Inner>)>>>;
@@ -73,8 +73,8 @@ pub fn go() {
         pgconn.execute(&format!("CREATE TABLE IF NOT EXISTS sv_{} (ts int, sv jsonb) PARTITION BY RANGE (ts)", tbsuf), &[]).unwrap();
     }
 
-    /* 从 DB 中缓存最多 10 天的数据 */
-    for i in 0..(10 * 24) {
+    /* 从 DB 中缓存最多 30 天的数据 */
+    for i in 0..30 {
         if mem_insufficient() {
             break;
         } else {
@@ -82,8 +82,8 @@ pub fn go() {
                 let rows = pgconn.query(
                     &format!("SELECT ts, sv::text FROM sv_{} WHERE ts > {} AND ts <= {} AND ts % {} = 0 ORDER BY ts DESC",
                              tbsuffix[j],
-                             basestamp / 1000 - (i + 1) * 3600,
-                             basestamp / 1000 - i * 3600,
+                             basestamp / 1000 - (i + 1) * 24 * 3600,
+                             basestamp / 1000 - i * 24 * 3600,
                              CACHEINTERVAL),
                     &[]).unwrap();
                 if rows.is_empty() {
