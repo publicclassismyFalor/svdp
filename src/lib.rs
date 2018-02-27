@@ -19,11 +19,9 @@ extern crate threadpool;
 extern crate iron;
 
 #[macro_use] mod zmacro;
-mod serv;
-pub mod sv;
+mod sv;
 mod dp;
 
-use std::thread;
 use std::fs::File;
 use std::io::Read;
 
@@ -84,14 +82,6 @@ fn conf_parse() -> Config {
 }
 
 pub fn run() {
-    if None != CONF.sv_http_addr {
-        thread::spawn(|| serv::http_serv());
-    }
-
-    if None != CONF.sv_tcp_addr {
-        thread::spawn(|| serv::tcp_serv());
-    }
-
     sv::go();
     dp::go();
 }

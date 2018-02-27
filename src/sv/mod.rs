@@ -1,4 +1,4 @@
-pub mod aliyun;
+mod aliyun;
 
 pub fn go() {
     aliyun::go();
