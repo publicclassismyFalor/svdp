@@ -183,14 +183,17 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
     let res: String;
     if let Some(orig) = qres.get(0) {
         let orig: String = orig;
-        let mut finalres = vec![vec![], vec![]];
-        if let Ok(mut r) = serde_json::from_str::<Vec<(i32, Option<i32>)>>(&orig) {
+        let mut finalres = (vec![], vec![]);
+        if let Ok(mut r) = serde_json::from_str::<Vec<(i64, Option<i32>)>>(&orig) {
             r.sort_by(|a, b|a.0.cmp(&b.0));
             let len = r.len();
             for i in 0..len {
                 if let Some(v) = r[i].1 {
-                    finalres[0].push(r[i].0);
-                    finalres[1].push(v);
+                    // ** 需要 strftime 形式的时间？ **
+                    // use ::time::{Timespec, strftime, at};
+                    // finalres.0.push(strftime("%m-%d %H:%M:%S", &at(Timespec::new(r[i].0, 0))).unwrap_or("".to_owned()));
+                    finalres.0.push(r[i].0);
+                    finalres.1.push(v);
                 }
             }
         } else {
