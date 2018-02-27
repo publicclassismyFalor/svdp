@@ -113,51 +113,54 @@ fn tcp_ops(mut socket: TcpStream) {
 /**************************************
  * common worker for http and raw tcp *
  **************************************/
-macro_rules! single_worker {
+macro_rules! worker_real {
     ($req: expr, $myworker: expr) => {
-        let reqid = $req.id;
+        {
+            let reqid = $req.id;
 
-        let mut res;
-        match $myworker($req) {
-            Ok(r) => res = r,
-            Err(e) => return Err(format!("{}\"err\":\"{}\",\"id\":{}{}", "{", e, reqid, "}"))
+            let res;
+            match $myworker($req) {
+                Ok(r) => res = r,
+                Err(e) => return Err(format!("{}\"err\":\"{}\",\"id\":{}{}", "{", e, reqid, "}"))
+            }
+
+            res
         }
+    }
+}
 
-        let finalres = serde_json::to_string(&(res.0, res.1)).unwrap();
-
-        return Ok((finalres, reqid));
+macro_rules! worker_single {
+    ($res: expr, $reqid: expr) => {
+        return Ok((serde_json::to_string(&($res.0, $res.1)).unwrap(), $reqid))
     }
 }
 
 macro_rules! worker {
     ($req: expr, $queue: expr) => {
         {
+            let reqid = $req.id;
             match $queue.read().unwrap().get(0) {
                 None => {
-                    single_worker!($req, db_worker);
+                    worker_single!(worker_real!($req.clone(), db_worker), reqid);
                 },
 
                 Some(vecdq) if vecdq.0 > $req.params.ts_range[1] => {
-                    single_worker!($req, db_worker);
+                    worker_single!(worker_real!($req.clone(), db_worker), reqid);
                 },
 
-                Some(vecdq) if vecdq.0 <= $req.params.ts_range[0] => {
-                    single_worker!($req, cache_worker);
+                Some(vecdq) if vecdq.0 < ($req.params.ts_range[0] + super::CACHEINTERVAL as i32)=> {
+                    worker_single!(worker_real!($req.clone(), cache_worker), reqid);
                 },
 
-                _ => {
-                    let reqid = $req.id;
-                    let mut cache_res;
-                    match cache_worker($req.clone()) {
-                        Ok(r) => cache_res = r,
-                        Err(e) => return Err(format!("{}\"err\":\"{}\",\"id\":{}{}", "{", e, reqid, "}"))
-                    }
+                Some(vecdq) => {
+                    let mut req_u = $req.clone();
+                    let mut req_l = $req.clone();
 
-                    let mut db_res;
-                    match db_worker($req) {
-                        Ok(r) => db_res = r,
-                        Err(e) => return Err(format!("{}\"err\":\"{}\",\"id\":{}{}", "{", e, reqid, "}"))
-                    }
+                    req_u.params.ts_range[0] = vecdq.0;
+                    req_l.params.ts_range[1] = vecdq.0 - super::CACHEINTERVAL as i32;
+
+                    let mut cache_res = worker_real!(req_u, cache_worker);
+                    let mut db_res = worker_real!(req_l, db_worker);
 
                     let finalres = serde_json::to_string(
                             &(db_res.0.append(&mut cache_res.0), db_res.1.append(&mut cache_res.1))
