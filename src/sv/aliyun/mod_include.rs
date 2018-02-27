@@ -134,3 +134,8 @@ fn cmd_exec(mut extra: Vec<String>) -> Result<Vec<u8>, Error> {
         return Err(Error::from_raw_os_error(output.status.code().unwrap_or(1)));
     }
 }
+
+// TODO
+pub fn mem_insufficient() -> bool {
+    true
+}

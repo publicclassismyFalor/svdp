@@ -8,6 +8,8 @@ mod mongodb;
 use ::std;
 use std::thread;
 use std::time::Duration;
+use std::sync::{Arc, RwLock};
+use std::collections::{HashMap, VecDeque};
 
 use std::io::Error;
 use std::process::Command;
@@ -23,6 +25,16 @@ pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNk
 
 pub static mut BASESTAMP: u64 = 0;
 pub const INTERVAL: u64 = 5 * 60 * 1000;
+pub const CACHEINTERVAL: u64 = 5 * 60;
+
+lazy_static! {
+    pub static ref CACHE_ECS: Arc<RwLock<VecDeque<(i32, HashMap<String, ecs::Inner>)>>> = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_SLB: Arc<RwLock<VecDeque<(i32, HashMap<String, slb::Inner>)>>> = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_RDS: Arc<RwLock<VecDeque<(i32, HashMap<String, rds::Inner>)>>> = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_MONGODB: Arc<RwLock<VecDeque<(i32, HashMap<String, mongodb::Inner>)>>> = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_REDIS: Arc<RwLock<VecDeque<(i32, HashMap<String, redis::Inner>)>>> = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_MEMCACHE: Arc<RwLock<VecDeque<(i32, HashMap<String, memcache::Inner>)>>> = Arc::new(RwLock::new(VecDeque::new()));
+}
 
 pub fn go() {
     let ts_now = || 1000 * std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();

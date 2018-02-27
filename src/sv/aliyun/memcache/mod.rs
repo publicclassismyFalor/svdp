@@ -24,7 +24,7 @@ pub struct Memcache {
     data: HashMap<String, Inner>,  /* K: instance_id, V: Supervisor Data */
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Inner {
     cpu_ratio: i16,
     mem_ratio: i16,
@@ -99,6 +99,17 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Memcache>>>, region: String) {
                     &serde_json::to_value(&v.data).unwrap()
                 ]) {
                 err!(e);
+            }
+
+            if 0 == *ts % super::CACHEINTERVAL {
+                let mut cache_deque = super::CACHE_MEMCACHE.write().unwrap();
+
+                /* 若系统内存占用已超过阀值，则销毁最旧的数据条目 */
+                if super::mem_insufficient() {
+                    cache_deque.pop_front();
+                }
+
+                cache_deque.push_back((*ts as i32, v.data.clone()));
             }
         }
     } else {
