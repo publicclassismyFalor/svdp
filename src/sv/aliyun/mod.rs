@@ -27,13 +27,20 @@ pub static mut BASESTAMP: u64 = 0;
 pub const INTERVAL: u64 = 5 * 60 * 1000;
 pub const CACHEINTERVAL: u64 = 5 * 60;
 
+type Ecs = Arc<RwLock<VecDeque<(i32, HashMap<String, ecs::Inner>)>>>;
+type Slb = Arc<RwLock<VecDeque<(i32, HashMap<String, slb::Inner>)>>>;
+type Rds = Arc<RwLock<VecDeque<(i32, HashMap<String, rds::Inner>)>>>;
+type MongoDB = Arc<RwLock<VecDeque<(i32, HashMap<String, mongodb::Inner>)>>>;
+type Redis = Arc<RwLock<VecDeque<(i32, HashMap<String, redis::Inner>)>>>;
+type Memcache = Arc<RwLock<VecDeque<(i32, HashMap<String, memcache::Inner>)>>>;
+
 lazy_static! {
-    pub static ref CACHE_ECS: Arc<RwLock<VecDeque<(i32, HashMap<String, ecs::Inner>)>>> = Arc::new(RwLock::new(VecDeque::new()));
-    pub static ref CACHE_SLB: Arc<RwLock<VecDeque<(i32, HashMap<String, slb::Inner>)>>> = Arc::new(RwLock::new(VecDeque::new()));
-    pub static ref CACHE_RDS: Arc<RwLock<VecDeque<(i32, HashMap<String, rds::Inner>)>>> = Arc::new(RwLock::new(VecDeque::new()));
-    pub static ref CACHE_MONGODB: Arc<RwLock<VecDeque<(i32, HashMap<String, mongodb::Inner>)>>> = Arc::new(RwLock::new(VecDeque::new()));
-    pub static ref CACHE_REDIS: Arc<RwLock<VecDeque<(i32, HashMap<String, redis::Inner>)>>> = Arc::new(RwLock::new(VecDeque::new()));
-    pub static ref CACHE_MEMCACHE: Arc<RwLock<VecDeque<(i32, HashMap<String, memcache::Inner>)>>> = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_ECS: Ecs = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_SLB: Slb = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_RDS: Rds = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_MONGODB: MongoDB = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_REDIS: Redis = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_MEMCACHE: Memcache = Arc::new(RwLock::new(VecDeque::new()));
 }
 
 pub fn go() {
@@ -42,22 +49,47 @@ pub fn go() {
     let pgconn = Connection::connect(::CONF.pg_login_url.as_str(), TlsMode::None).unwrap();
     pgconn.execute("CREATE TABLE IF NOT EXISTS sv_meta (last_basestamp int)", &[]).unwrap();
 
-    let qrow = pgconn.query("SELECT last_basestamp FROM sv_meta", &[]).unwrap();
-    if qrow.is_empty() {
+    let rows = pgconn.query("SELECT last_basestamp FROM sv_meta", &[]).unwrap();
+    if rows.is_empty() {
         unsafe { BASESTAMP = ts_now() / INTERVAL * INTERVAL - 2 * INTERVAL; }
     } else {
-        if let Some(qres) = qrow.get(0).get(0) {
-            let ts: i32 = qres;
+        if let Some(row) = rows.get(0).get(0) {
+            let ts: i32 = row;
             unsafe { BASESTAMP = 1000 * ts as u64; }
         } else {
             errexit!("db err");
         }
     }
 
+    let mut basestamp;
+    unsafe { basestamp = BASESTAMP; }
+
     let tbsuffix = &["ecs", "slb", "rds", "redis", "memcache", "mongodb"];
 
     for tbsuf in tbsuffix {
         pgconn.execute(&format!("CREATE TABLE IF NOT EXISTS sv_{} (ts int, sv jsonb) PARTITION BY RANGE (ts)", tbsuf), &[]).unwrap();
+    }
+
+    /* 从 DB 中缓存最多 10 天的数据 */
+    for i in 0..(10 * 24) {
+        if mem_insufficient() {
+            break;
+        } else {
+            let rows = pgconn.query("SELECT ts, sv FROM sv_ecs WHERE ts > $1 AND ts <= $2 AND ts % $3 = 0",
+                                    &[
+                                        &((basestamp / 1000 - (i + 1) * 3600) as i32),
+                                        &((basestamp / 1000 - i * 3600) as i32),
+                                        &(CACHEINTERVAL as i32)
+                                    ]).unwrap();
+            if rows.is_empty() {
+                break;
+            } else {
+                for row in &rows {
+                    //row.get(0);  // ts
+                    //row.get(1);  // sv
+                }
+            }
+        }
     }
 
     loop {
@@ -72,9 +104,6 @@ pub fn go() {
                 continue;
             }
         }
-
-        let mut basestamp;
-        unsafe { basestamp = BASESTAMP; }
 
         let mut tbmark = basestamp / 1000 / 3600;
         while (5 + ts_now() / 1000 / 3600) > tbmark {

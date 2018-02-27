@@ -164,13 +164,13 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
     let querysql = format!("SELECT array_to_json(array_agg(json_build_array(ts, sv#>{})))::text FROM {} WHERE ts >= {} AND ts <= {} {}",
                            queryfilter, req.method, req.params.ts_range[0], req.params.ts_range[1], itvfilter);
 
-    let qrow;
+    let rows;
     match pgconn.query(querysql.as_str(), &[]) {
         Ok(q) => {
             if q.is_empty() {
                 return Ok(("[]".to_owned(), req.id));
             } else {
-                qrow = q;
+                rows = q;
             }
         },
         Err(e) => {
@@ -179,9 +179,9 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
         }
     }
 
-    let qres = qrow.get(0);
+    let row = rows.get(0);
     let res: String;
-    if let Some(orig) = qres.get(0) {
+    if let Some(orig) = row.get(0) {
         let orig: String = orig;
         let mut finalres = (vec![], vec![]);
         if let Ok(mut r) = serde_json::from_str::<Vec<(i64, Option<i32>)>>(&orig) {
