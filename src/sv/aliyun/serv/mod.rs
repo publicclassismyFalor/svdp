@@ -127,12 +127,35 @@ fn tcp_ops(mut socket: TcpStream) {
  * common worker for http and raw tcp *
  **************************************/
 macro_rules! cache_worker {
-    ($req: expr, $cb: expr) => {
-        {
+    ($req: expr, $cb_finder: expr, $deque: expr) => {
+        loop {
             let mut final_k: Vec<String> = vec![];
             let mut final_v: Vec<i32> = vec![];
 
-            (final_k, final_v)
+            match $req.params.item {
+                (item, None, None) => {
+                    if let Some(handler) = $cb_finder(&item) {
+
+                        break (final_k, final_v);
+                    } else {
+                        err!("");
+                        return Err(("params invalid".to_owned(), $req.id));
+                    }
+                },
+                (submethod, Some(dev), Some(item)) => {
+                    if let Some(handler) = $cb_finder(&item) {
+
+                        break (final_k, final_v);
+                    } else {
+                        err!("");
+                        return Err(("params invalid".to_owned(), $req.id));
+                    }
+                },
+                _ => {
+                    err!("");
+                    return Err(("params invalid".to_owned(), $req.id));
+                }
+            }
         }
     }
 }
@@ -227,36 +250,36 @@ macro_rules! res {
 }
 
 macro_rules! go {
-    ($req: expr, $queue: expr, $cb: expr) => {
+    ($req: expr, $deque: expr, $cb_finder: expr) => {
         {
             let reqid = $req.id;
-            match $queue.read().unwrap().get(0) {
+            match $deque.read().unwrap().get(0) {
                 None => {
                     let tuple = db_worker!($req);
                     return res!(tuple, reqid);
                 },
 
-                Some(deque) if deque.0 > $req.params.ts_range[1] => {
+                Some(dq) if dq.0 > $req.params.ts_range[1] => {
                     let tuple = db_worker!($req);
                     return res!(tuple, reqid);
                 },
 
-                Some(deque) if deque.0 < ($req.params.ts_range[0] + super::CACHEINTERVAL as i32)=> {
-                    let tuple = cache_worker!($req, $cb);
+                Some(dq) if dq.0 < ($req.params.ts_range[0] + super::CACHEINTERVAL as i32)=> {
+                    let tuple = cache_worker!($req, $cb_finder, $deque);
                     return res!(tuple, reqid);
                 },
 
-                Some(deque) => {
+                Some(dq) => {
                     /*
                      * first, split params' ts_range;
                      * then, get data from db;
                      * last, get data from cache.
                      **/
                     let mut req_db = $req.clone();
-                    req_db.params.ts_range[1] = deque.0 - super::CACHEINTERVAL as i32;
+                    req_db.params.ts_range[1] = dq.0 - super::CACHEINTERVAL as i32;
                     let mut db_res = db_worker!(req_db);
 
-                    let mut cache_res = cache_worker!($req, $cb);
+                    let mut cache_res = cache_worker!($req, $cb_finder, $deque);
 
                     let res = serde_json::to_string(
                             &(db_res.0.append(&mut cache_res.0), db_res.1.append(&mut cache_res.1))
@@ -307,22 +330,3 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), (String, i32)> {
         _ => unreachable!()
     }
 }
-
-//fn cache_worker(req: Req) -> Result<(Vec<String>, Vec<i32>), String> {
-//    let filter;
-//    match req.params.item {
-//        (item, None, None) => {
-//            filter = item;
-//        },
-//        _ => {
-//            err!("");
-//            return Err("params invalid".to_owned());
-//        }
-//    }
-//
-//    if let Some(handler) = Self::get_cb(&filter) {
-//        Ok((vec![], vec![]))
-//    } else {
-//        Err("".to_owned())
-//    }
-//}
