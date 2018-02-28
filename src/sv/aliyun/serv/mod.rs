@@ -113,7 +113,7 @@ fn tcp_ops(mut socket: TcpStream) {
 /**************************************
  * common worker for http and raw tcp *
  **************************************/
-macro_rules! worker_real {
+macro_rules! get_tuple {
     ($req: expr, $myworker: expr) => {
         {
             let reqid = $req.id;
@@ -141,26 +141,31 @@ macro_rules! worker {
             let reqid = $req.id;
             match $queue.read().unwrap().get(0) {
                 None => {
-                    worker_single!(worker_real!($req.clone(), db_worker), reqid);
+                    let res = get_tuple!($req, db_worker);
+                    worker_single!(res, reqid);
                 },
 
                 Some(vecdq) if vecdq.0 > $req.params.ts_range[1] => {
-                    worker_single!(worker_real!($req.clone(), db_worker), reqid);
+                    let res = get_tuple!($req, db_worker);
+                    worker_single!(res, reqid);
                 },
 
                 Some(vecdq) if vecdq.0 < ($req.params.ts_range[0] + super::CACHEINTERVAL as i32)=> {
-                    worker_single!(worker_real!($req.clone(), cache_worker), reqid);
+                    let res = get_tuple!($req, cache_worker);
+                    worker_single!(res, reqid);
                 },
 
                 Some(vecdq) => {
-                    let mut req_u = $req.clone();
-                    let mut req_l = $req.clone();
+                    /*
+                     * first, split params' ts_range;
+                     * then, get data from db;
+                     * last, get data from cache.
+                     **/
+                    let mut req_db = $req.clone();
+                    req_db.params.ts_range[1] = vecdq.0 - super::CACHEINTERVAL as i32;
+                    let mut db_res = get_tuple!(req_db, db_worker);
 
-                    req_u.params.ts_range[0] = vecdq.0;
-                    req_l.params.ts_range[1] = vecdq.0 - super::CACHEINTERVAL as i32;
-
-                    let mut cache_res = worker_real!(req_u, cache_worker);
-                    let mut db_res = worker_real!(req_l, db_worker);
+                    let mut cache_res = get_tuple!($req, cache_worker);
 
                     let finalres = serde_json::to_string(
                             &(db_res.0.append(&mut cache_res.0), db_res.1.append(&mut cache_res.1))
