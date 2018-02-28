@@ -18,7 +18,8 @@ use std::sync::{Arc, Mutex};
 use super::{DATA, BASESTAMP, INTERVAL};
 
 pub const ACSITEM: &str = "acs_rds_dashboard";
-pub const MSPERIOD: u64 = 300000;  // ms period
+//pub const MSPERIOD: u64 = 300000;  // ms period
+pub const MSPERIOD: u64 = super::CACHEINTERVAL;
 
 /* key: time_stamp */
 pub struct Rds {

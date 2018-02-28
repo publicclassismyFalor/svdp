@@ -21,7 +21,8 @@ use std::sync::{mpsc, Arc, Mutex};
 use super::{DATA, BASESTAMP, INTERVAL, cmd_exec};
 
 pub const ACSITEM: &str = "acs_ecs_dashboard";
-pub const MSPERIOD: u64 = 15000;  // ms period
+//pub const MSPERIOD: u64 = 15000;  // ms period
+pub const MSPERIOD: u64 = super::CACHEINTERVAL;
 
 //enum DT {
 //    Ecs,
