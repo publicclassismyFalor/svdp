@@ -195,7 +195,7 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
         "sv_mongodb" => worker!(req, aliyun::CACHE_MONGODB),
         "sv_redis" => worker!(req, aliyun::CACHE_REDIS),
         "sv_memcache" => worker!(req, aliyun::CACHE_MEMCACHE),
-        _ => errexit!("the fucking world is over!")
+        _ => unreachable!()
     }
 }
 

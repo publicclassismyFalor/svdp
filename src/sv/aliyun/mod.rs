@@ -120,7 +120,7 @@ pub fn go() {
                                 let sv: HashMap<String, memcache::Inner> = serde_json::from_str(&sv).unwrap();
                                 CACHE_MEMCACHE.write().unwrap().push_front((ts, sv));
                             },
-                            _ => errexit!("the fucking world is over!")
+                            _ => unreachable!()
                         }
                     }
                 }
