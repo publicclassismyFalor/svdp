@@ -128,12 +128,10 @@ fn tcp_ops(mut socket: TcpStream) {
  * common worker for http and raw tcp *
  **************************************/
 macro_rules! cache_actor {
-    (
-        $final_k: expr, $final_v: expr,
+    ($final_k: expr, $final_v: expr,
         $req: expr, $cb: expr, $deque: expr,
         $condition: expr,
-        $me: expr, $dev: expr, $item: expr
-    ) => {
+        $dev: expr, $item: expr) => {
 
         for x in $deque.read().unwrap().iter() {
             if x.0 > $req.params.ts_range[1] {
@@ -141,7 +139,7 @@ macro_rules! cache_actor {
             }
 
             if x.0 >= $req.params.ts_range[0] && 0 == x.0 % $condition {
-                if let Some(v) = x.1.get($me) {
+                if let Some(v) = x.1.get(&$req.params.instance_id) {
                     $final_k.push(
                         strftime("%m-%d %H:%M:%S", &at(Timespec::new(x.0 as i64, 0)))
                         .unwrap_or("".to_owned()));
@@ -170,24 +168,24 @@ macro_rules! cache_worker {
             };
 
             match $req.params.item {
-                (me, None, None) => {
-                    if let Some(handler) = $get_cb(&me) {
+                (item, None, None) => {
+                    if let Some(handler) = $get_cb(&item) {
                         if has_itv {
-                            cache_actor!(final_k, final_v, $req, handler, $deque, itv, &me, "", "");
+                            cache_actor!(final_k, final_v, $req, handler, $deque, itv, "", "");
                         } else {
-                            cache_actor!(final_k, final_v, $req, handler, $deque, 1, &me, "", "");
+                            cache_actor!(final_k, final_v, $req, handler, $deque, 1, "", "");
                         }
                     } else {
                         err!("0");
                         return Err(("params invalid".to_owned(), $req.id));
                     }
                 },
-                (me, Some(dev), Some(item)) => {
-                    if let Some(handler) = $get_cb(&me) {
+                (submethod, Some(dev), Some(item)) => {
+                    if let Some(handler) = $get_cb(&submethod) {
                         if has_itv {
-                            cache_actor!(final_k, final_v, $req, handler, $deque, itv, &me, &dev, &item);
+                            cache_actor!(final_k, final_v, $req, handler, $deque, itv, &dev, &item);
                         } else {
-                            cache_actor!(final_k, final_v, $req, handler, $deque, 1, &me, &dev, &item);
+                            cache_actor!(final_k, final_v, $req, handler, $deque, 1, &dev, &item);
                         }
                     } else {
                         err!("10");
