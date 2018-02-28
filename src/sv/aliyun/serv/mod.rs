@@ -305,40 +305,32 @@ macro_rules! go {
                     let tuple = db_worker!($req);
                     return res!(tuple, reqid);
                 },
-
-                Some(dq) if dq.0 > $req.params.ts_range[1] => {
-                    let tuple = db_worker!($req);
-                    return res!(tuple, reqid);
-                },
-
-                Some(dq) if dq.0 < ($req.params.ts_range[0] + super::CACHEINTERVAL as i32)=> {
-                    let tuple = cache_worker!($req, $get_cb, $deque);
-                    return res!(tuple, reqid);
-                },
-
                 Some(dq) => {
-                    /*
-                     * first, split params' ts_range;
-                     * then, get data from db;
-                     * last, get data from cache.
-                     **/
-                    let mut req_db = $req.clone();
-                    req_db.params.ts_range[1] = dq.0 - super::CACHEINTERVAL as i32;
-                    let mut db_res = db_worker!(req_db);
-
-                    let mut cache_res = cache_worker!($req, $get_cb, $deque);
-
-                    let res;
-                    if 0 < db_res.0.len() {
-                        res = serde_json::to_string(&(
-                                db_res.0.append(&mut cache_res.0),
-                                db_res.1.append(&mut cache_res.1)
-                                )).unwrap();
+                    if dq.0 > $req.params.ts_range[1]{
+                        let tuple = db_worker!($req);
+                        return res!(tuple, reqid);
+                    } else if dq.0 < ($req.params.ts_range[0] + super::CACHEINTERVAL as i32) {
+                        let tuple = cache_worker!($req, $get_cb, $deque);
+                        return res!(tuple, reqid);
                     } else {
-                        res = serde_json::to_string(&(cache_res.0, cache_res.1)).unwrap();
-                    }
+                        let mut req_db = $req.clone();
+                        req_db.params.ts_range[1] = dq.0 - super::CACHEINTERVAL as i32;
+                        let mut db_res = db_worker!(req_db);
 
-                    return Ok((res, reqid));
+                        let mut cache_res = cache_worker!($req, $get_cb, $deque);
+
+                        let res;
+                        if 0 < db_res.0.len() {
+                            res = serde_json::to_string(&(
+                                    db_res.0.append(&mut cache_res.0),
+                                    db_res.1.append(&mut cache_res.1)
+                                    )).unwrap();
+                        } else {
+                            res = serde_json::to_string(&(cache_res.0, cache_res.1)).unwrap();
+                        }
+
+                        return Ok((res, reqid));
+                    }
                 }
             }
         }
@@ -357,11 +349,11 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), (String, i32)> {
 
     match req.params.interval {
         Some(itv) => {
-            // 若请求的数据间隔小于缓存标准，则须从DB中直接提取
-            if CACHEINTERVAL as i32 > itv {
-                let reqid = req.id;
-                let tuple = db_worker!(req);
-                return res!(tuple, reqid);
+            let cache_itv = CACHEINTERVAL as i32;
+            if cache_itv > itv {
+                req.params.interval = Some(cache_itv);  // 低于 300s，自动提升为 300s
+            } else {
+                req.params.interval = Some(itv / cache_itv * cache_itv);  // 其余情况，按 300s 对齐
             }
         },
         None => {
