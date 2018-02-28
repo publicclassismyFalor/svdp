@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use super::{Ecs, MSPERIOD};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct NetIf {
     pub rd: i32,  /* kbytes */
     pub wr: i32,
