@@ -129,9 +129,9 @@ macro_rules! get_tuple {
     }
 }
 
-macro_rules! worker_single {
+macro_rules! res {
     ($res: expr, $reqid: expr) => {
-        return Ok((serde_json::to_string(&($res.0, $res.1)).unwrap(), $reqid))
+        Ok((serde_json::to_string(&($res.0, $res.1)).unwrap(), $reqid))
     }
 }
 
@@ -141,18 +141,18 @@ macro_rules! worker {
             let reqid = $req.id;
             match $queue.read().unwrap().get(0) {
                 None => {
-                    let res = get_tuple!($req, db_worker);
-                    worker_single!(res, reqid);
+                    let vectp = get_tuple!($req, db_worker);
+                    return res!(vectp, reqid);
                 },
 
                 Some(vecdq) if vecdq.0 > $req.params.ts_range[1] => {
-                    let res = get_tuple!($req, db_worker);
-                    worker_single!(res, reqid);
+                    let vectp = get_tuple!($req, db_worker);
+                    return res!(vectp, reqid);
                 },
 
                 Some(vecdq) if vecdq.0 < ($req.params.ts_range[0] + super::CACHEINTERVAL as i32)=> {
-                    let res = get_tuple!($req, cache_worker);
-                    worker_single!(res, reqid);
+                    let vectp = get_tuple!($req, cache_worker);
+                    return res!(vectp, reqid);
                 },
 
                 Some(vecdq) => {
@@ -163,15 +163,15 @@ macro_rules! worker {
                      **/
                     let mut req_db = $req.clone();
                     req_db.params.ts_range[1] = vecdq.0 - super::CACHEINTERVAL as i32;
-                    let mut db_res = get_tuple!(req_db, db_worker);
+                    let mut dbtp = get_tuple!(req_db, db_worker);
 
-                    let mut cache_res = get_tuple!($req, cache_worker);
+                    let mut cachetp = get_tuple!($req, cache_worker);
 
-                    let finalres = serde_json::to_string(
-                            &(db_res.0.append(&mut cache_res.0), db_res.1.append(&mut cache_res.1))
+                    let res = serde_json::to_string(
+                            &(dbtp.0.append(&mut cachetp.0), dbtp.1.append(&mut cachetp.1))
                         ).unwrap();
 
-                    return Ok((finalres, reqid));
+                    return Ok((res, reqid));
                 }
             }
         }
