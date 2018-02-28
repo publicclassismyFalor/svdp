@@ -56,6 +56,25 @@ impl Inner {
             delay: 0,
         }
     }
+
+    fn cpu_ratio(me: &Self, _: &str, _: &str) -> i32 { me.cpu_ratio as i32 }
+    fn mem_ratio(me: &Self, _: &str, _: &str) -> i32 { me.mem_ratio as i32 }
+    fn disk_ratio(me: &Self, _: &str, _: &str) -> i32 { me.disk_ratio as i32 }
+    fn disktps_ratio(me: &Self, _: &str, _: &str) -> i32 { me.disktps_ratio as i32 }
+    fn conn_ratio(me: &Self, _: &str, _: &str) -> i32 { me.conn_ratio as i32 }
+    fn delay(me: &Self, _: &str, _: &str) -> i32 { me.delay as i32 }
+
+    pub fn get_cb(me: &str) -> Option<fn(&Inner, &str, &str) -> i32> {
+        match me {
+            "cpu_ratio" => Some(Inner::cpu_ratio),
+            "mem_ratio" => Some(Inner::mem_ratio),
+            "disk_ratio" => Some(Inner::disk_ratio),
+            "disktps_ratio" => Some(Inner::disktps_ratio),
+            "conn_ratio" => Some(Inner::conn_ratio),
+            "delay" => Some(Inner::delay),
+            _ => None
+        }
+    }
 }
 
 fn get_data(holder: Arc<Mutex<HashMap<u64, Rds>>>, region: String) {

@@ -371,11 +371,11 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), (String, i32)> {
 
     match req.method.as_str() {
         "sv_ecs" => go!(req, aliyun::CACHE_ECS, aliyun::ecs::Inner::get_cb),
-        // "sv_slb" => go!(req, aliyun::CACHE_SLB, aliyun::slb::Inner::get_cb),
-        // "sv_rds" => go!(req, aliyun::CACHE_RDS, aliyun::rds::Inner::get_cb),
-        // "sv_mongodb" => go!(req, aliyun::CACHE_MONGODB, aliyun::mongodb::Inner::get_cb),
-        // "sv_redis" => go!(req, aliyun::CACHE_REDIS, aliyun::redis::Inner::get_cb),
-        // "sv_memcache" => go!(req, aliyun::CACHE_MEMCACHE, aliyun::memcache::Inner::get_cb),
+        "sv_slb" => go!(req, aliyun::CACHE_SLB, aliyun::slb::Inner::get_cb),
+        "sv_rds" => go!(req, aliyun::CACHE_RDS, aliyun::rds::Inner::get_cb),
+        "sv_mongodb" => go!(req, aliyun::CACHE_MONGODB, aliyun::mongodb::Inner::get_cb),
+        "sv_redis" => go!(req, aliyun::CACHE_REDIS, aliyun::redis::Inner::get_cb),
+        "sv_memcache" => go!(req, aliyun::CACHE_MEMCACHE, aliyun::memcache::Inner::get_cb),
         _ => {
             err!(req.method);
             return Err(("method invalid".to_owned(), req.id));

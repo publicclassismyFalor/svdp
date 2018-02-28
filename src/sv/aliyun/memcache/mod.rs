@@ -51,6 +51,23 @@ impl Inner {
             wr: 0,
         }
     }
+
+    fn cpu_ratio(me: &Self, _: &str, _: &str) -> i32 { me.cpu_ratio as i32 }
+    fn mem_ratio(me: &Self, _: &str, _: &str) -> i32 { me.mem_ratio as i32 }
+    fn conn_ratio(me: &Self, _: &str, _: &str) -> i32 { me.conn_ratio as i32 }
+    fn rd(me: &Self, _: &str, _: &str) -> i32 { me.rd }
+    fn wr(me: &Self, _: &str, _: &str) -> i32 { me.wr }
+
+    pub fn get_cb(me: &str) -> Option<fn(&Inner, &str, &str) -> i32> {
+        match me {
+            "cpu_ratio" => Some(Inner::cpu_ratio),
+            "mem_ratio" => Some(Inner::mem_ratio),
+            "conn_ratio" => Some(Inner::conn_ratio),
+            "rd" => Some(Inner::rd),
+            "wr" => Some(Inner::wr),
+            _ => None
+        }
+    }
 }
 
 fn get_data(holder: Arc<Mutex<HashMap<u64, Memcache>>>, region: String) {

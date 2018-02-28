@@ -51,6 +51,23 @@ impl Inner {
             conn: 0,
         }
     }
+
+    fn rd(me: &Self, _: &str, _: &str) -> i32 { me.rd }
+    fn wr(me: &Self, _: &str, _: &str) -> i32 { me.wr }
+    fn rdtps(me: &Self, _: &str, _: &str) -> i32 { me.rdtps }
+    fn wrtps(me: &Self, _: &str, _: &str) -> i32 { me.wrtps }
+    fn conn(me: &Self, _: &str, _: &str) -> i32 { me.conn }
+
+    pub fn get_cb(me: &str) -> Option<fn(&Inner, &str, &str) -> i32> {
+        match me {
+            "rd" => Some(Inner::rd),
+            "wr" => Some(Inner::wr),
+            "rdtps" => Some(Inner::rdtps),
+            "wrtps" => Some(Inner::wrtps),
+            "conn" => Some(Inner::conn),
+            _ => None
+        }
+    }
 }
 
 fn get_data(holder: Arc<Mutex<HashMap<u64, Slb>>>, region: String) {
