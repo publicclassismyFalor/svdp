@@ -4,8 +4,8 @@ mod load5m;
 mod load15m;
 mod tcp;
 
-mod disk;
-mod netif;
+pub mod disk;
+pub mod netif;
 
 mod base;
 
@@ -19,6 +19,7 @@ use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
 
 use super::{DATA, BASESTAMP, INTERVAL, cmd_exec};
+use super::serv::Req;
 
 pub const ACSITEM: &str = "acs_ecs_dashboard";
 pub const MSPERIOD: u64 = 15000;  // ms period
@@ -31,8 +32,16 @@ pub const MSPERIOD: u64 = 15000;  // ms period
 /* key: time_stamp */
 pub struct Ecs {
     data: HashMap<String, Inner>,  /* K: instance_id, V: Supervisor Data */
-
     //disk: HashMap<String, String>,  /* K: Device, V: DiskId */
+}
+
+impl Ecs {
+    fn new() -> Ecs {
+        Ecs {
+            data: HashMap::new(),
+            //disk: HashMap::new(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -45,23 +54,6 @@ pub struct Inner {
 
     disk: HashMap<String, disk::Disk>,  /* K: device */
     netif: HashMap<String, netif::NetIf>,  /* K: IP */
-}
-
-struct Meta;
-
-trait META {
-    fn argv_new(&self, region: String) -> Vec<String>;
-    fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>);
-    //fn reflect(&self) -> DT;
-}
-
-impl Ecs {
-    fn new() -> Ecs {
-        Ecs {
-            data: HashMap::new(),
-            //disk: HashMap::new(),
-        }
-    }
 }
 
 impl Inner {
@@ -77,6 +69,50 @@ impl Inner {
             netif: HashMap::new(),
         }
     }
+
+    fn cpu_ratio(data: &Self) -> i32 { data.cpu_ratio as i32 }
+    fn mem_ratio(data: &Self) -> i32 { data.mem_ratio as i32 }
+    fn load5m(data: &Self) -> i32 { data.load5m }
+    fn load15m(data: &Self) -> i32 { data.load15m }
+    fn tcp(data: &Self) -> i32 { data.tcp }
+
+    fn get_cb(me: &str) -> Option<fn(&Inner) -> i32> {
+        match me {
+            "cpu_ratio" => Some(Inner::cpu_ratio),
+            "mem_ratio" => Some(Inner::mem_ratio),
+            "load5m" => Some(Inner::load5m),
+            "load15m" => Some(Inner::load15m),
+            "tcp" => Some(Inner::tcp),
+            _ => None
+        }
+    }
+
+    pub fn cache_worker(req: Req) -> Result<(Vec<String>, Vec<i32>), String> {
+        let filter;
+        match req.params.item {
+            (item, None, None) => {
+                filter = item;
+            },
+            _ => {
+                err!("");
+                return Err("invalid item".to_owned());
+            }
+        }
+
+        if let Some(handler) = Self::get_cb(&filter) {
+            Ok((vec![], vec![]))
+        } else {
+            Err("".to_owned())
+        }
+    }
+}
+
+struct Meta;
+
+trait META {
+    fn argv_new(&self, region: String) -> Vec<String>;
+    fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>);
+    //fn reflect(&self) -> DT;
 }
 
 impl META for Meta {

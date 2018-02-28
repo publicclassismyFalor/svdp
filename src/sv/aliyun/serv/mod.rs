@@ -24,18 +24,18 @@ use ::sv::aliyun;
 /// OR
 /// {"err":"...","id":0}
 #[derive(Serialize, Deserialize, Clone)]
-struct Req {
+pub struct Req {
     method: String,
-    params: Params,
-    id: i32,
+    pub params: Params,
+    pub id: i32,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-struct Params {
-    item: (String, Option<String>, Option<String>),
-    instance_id: String,
-    ts_range: [i32; 2],
-    interval: Option<i32>,
+pub struct Params {
+    pub item: (String, Option<String>, Option<String>),
+    pub instance_id: String,
+    pub ts_range: [i32; 2],
+    pub interval: Option<i32>,
 }
 
 /****************
@@ -135,8 +135,8 @@ macro_rules! res {
     }
 }
 
-macro_rules! worker {
-    ($req: expr, $queue: expr) => {
+macro_rules! go {
+    ($req: expr, $queue: expr, $cache_worker: expr) => {
         {
             let reqid = $req.id;
             match $queue.read().unwrap().get(0) {
@@ -151,7 +151,7 @@ macro_rules! worker {
                 },
 
                 Some(vecdq) if vecdq.0 < ($req.params.ts_range[0] + super::CACHEINTERVAL as i32)=> {
-                    let vectp = get_tuple!($req, cache_worker);
+                    let vectp = get_tuple!($req, $cache_worker);
                     return res!(vectp, reqid);
                 },
 
@@ -165,7 +165,7 @@ macro_rules! worker {
                     req_db.params.ts_range[1] = vecdq.0 - super::CACHEINTERVAL as i32;
                     let mut dbtp = get_tuple!(req_db, db_worker);
 
-                    let mut cachetp = get_tuple!($req, cache_worker);
+                    let mut cachetp = get_tuple!($req, $cache_worker);
 
                     let res = serde_json::to_string(
                             &(dbtp.0.append(&mut cachetp.0), dbtp.1.append(&mut cachetp.1))
@@ -189,19 +189,32 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), String> {
     }
 
     match req.method.as_str() {
-        "sv_ecs" => worker!(req, aliyun::CACHE_ECS),
-        "sv_slb" => worker!(req, aliyun::CACHE_SLB),
-        "sv_rds" => worker!(req, aliyun::CACHE_RDS),
-        "sv_mongodb" => worker!(req, aliyun::CACHE_MONGODB),
-        "sv_redis" => worker!(req, aliyun::CACHE_REDIS),
-        "sv_memcache" => worker!(req, aliyun::CACHE_MEMCACHE),
+        "sv_ecs" => {
+            match req.params.item {
+                (_, None, None) => go!(req, aliyun::CACHE_ECS, aliyun::ecs::Inner::cache_worker),
+                (_, Some(dev), _) => {
+                    match dev.as_str() {
+                        //"disk" => go!(req, aliyun::CACHE_ECS, aliyun::ecs::disk::Disk::cache_worker),
+                        //"netif" => go!(req, aliyun::CACHE_ECS, aliyun::ecs::netif::NetIf::cache_worker),
+                        _ => {
+                            err!("");
+                            return Err("params invalid".to_owned());
+                        }
+                    }
+                },
+                _ => {
+                    err!("");
+                    return Err("params invalid".to_owned());
+                }
+            }
+        },
+        //"sv_slb" => go!(req, aliyun::CACHE_SLB, aliyun::slb::Inner),
+        //"sv_rds" => go!(req, aliyun::CACHE_RDS, aliyun::rds::Inner),
+        //"sv_mongodb" => go!(req, aliyun::CACHE_MONGODB, aliyun::mongodb::Inner),
+        //"sv_redis" => go!(req, aliyun::CACHE_REDIS, aliyun::redis::Inner),
+        //"sv_memcache" => go!(req, aliyun::CACHE_MEMCACHE, aliyun::memcache::Inner),
         _ => unreachable!()
     }
-}
-
-// get data from memory cache
-fn cache_worker(req: Req) -> Result<(Vec<String>, Vec<i32>), String> {
-    Ok((vec![], vec![]))
 }
 
 // get data from postgres
