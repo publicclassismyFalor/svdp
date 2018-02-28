@@ -19,7 +19,6 @@ use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
 
 use super::{DATA, BASESTAMP, INTERVAL, cmd_exec};
-use super::serv::Req;
 
 pub const ACSITEM: &str = "acs_ecs_dashboard";
 pub const MSPERIOD: u64 = 15000;  // ms period
@@ -76,7 +75,7 @@ impl Inner {
     fn load15m(data: &Self) -> i32 { data.load15m }
     fn tcp(data: &Self) -> i32 { data.tcp }
 
-    fn get_cb(me: &str) -> Option<fn(&Inner) -> i32> {
+    pub fn get_cb(me: &str) -> Option<fn(&Inner) -> i32> {
         match me {
             "cpu_ratio" => Some(Inner::cpu_ratio),
             "mem_ratio" => Some(Inner::mem_ratio),
@@ -84,25 +83,6 @@ impl Inner {
             "load15m" => Some(Inner::load15m),
             "tcp" => Some(Inner::tcp),
             _ => None
-        }
-    }
-
-    pub fn cache_worker(req: Req) -> Result<(Vec<String>, Vec<i32>), String> {
-        let filter;
-        match req.params.item {
-            (item, None, None) => {
-                filter = item;
-            },
-            _ => {
-                err!("");
-                return Err("invalid item".to_owned());
-            }
-        }
-
-        if let Some(handler) = Self::get_cb(&filter) {
-            Ok((vec![], vec![]))
-        } else {
-            Err("".to_owned())
         }
     }
 }
