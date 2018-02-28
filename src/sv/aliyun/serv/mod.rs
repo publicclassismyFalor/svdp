@@ -14,6 +14,7 @@ use threadpool::ThreadPool;
 use ::{CONF, DBPOOL};
 use ::serde_json;
 use ::sv::aliyun;
+use super::CACHEINTERVAL;
 
 
 /// REQ example:
@@ -127,14 +128,56 @@ fn tcp_ops(mut socket: TcpStream) {
  * common worker for http and raw tcp *
  **************************************/
 macro_rules! cache_worker {
-    ($req: expr, $cb_finder: expr, $deque: expr) => {
+    ($req: expr, $get_cb: expr, $deque: expr) => {
         loop {
             let mut final_k: Vec<String> = vec![];
             let mut final_v: Vec<i32> = vec![];
 
+            let (has_itv, itv) = match $req.params.interval {
+                Some(itv) => {
+                    if CACHEINTERVAL as i32 == itv {
+                        (false, 0)
+                    } else {
+                        (true, itv)
+                    }
+                }
+                None => unreachable!(),
+            };
+
             match $req.params.item {
                 (item, None, None) => {
-                    if let Some(handler) = $cb_finder(&item) {
+                    if let Some(handler) = $get_cb(&item) {
+                        if has_itv {
+                            for x in $deque.read().unwrap().iter() {
+                                if x.0 > $req.params.ts_range[1] {
+                                    break;
+                                }
+
+                                if x.0 >= $req.params.ts_range[0] && 0 == x.0 % itv {
+                                    if let Some(v) = x.1.get(&item) {
+                                        final_k.push(
+                                            strftime("%m-%d %H:%M:%S", &at(Timespec::new(x.0 as i64, 0)))
+                                            .unwrap_or("".to_owned()));
+                                        final_v.push(handler(&v, "", ""));
+                                    }
+                                }
+                            }
+                        } else {
+                            for x in $deque.read().unwrap().iter() {
+                                if x.0 > $req.params.ts_range[1] {
+                                    break;
+                                }
+
+                                if x.0 >= $req.params.ts_range[0] {
+                                    if let Some(v) = x.1.get(&item) {
+                                        final_k.push(
+                                            strftime("%m-%d %H:%M:%S", &at(Timespec::new(x.0 as i64, 0)))
+                                            .unwrap_or("".to_owned()));
+                                        final_v.push(handler(&v, "", ""));
+                                    }
+                                }
+                            }
+                        }
 
                         break (final_k, final_v);
                     } else {
@@ -143,7 +186,38 @@ macro_rules! cache_worker {
                     }
                 },
                 (submethod, Some(dev), Some(item)) => {
-                    if let Some(handler) = $cb_finder(&item) {
+                    if let Some(handler) = $get_cb(&submethod) {
+                        if has_itv {
+                            for x in $deque.read().unwrap().iter() {
+                                if x.0 > $req.params.ts_range[1] {
+                                    break;
+                                }
+
+                                if x.0 >= $req.params.ts_range[0] && 0 == x.0 % itv {
+                                    if let Some(v) = x.1.get(&submethod) {
+                                        final_k.push(
+                                            strftime("%m-%d %H:%M:%S", &at(Timespec::new(x.0 as i64, 0)))
+                                            .unwrap_or("".to_owned()));
+                                        final_v.push(handler(&v, &dev, &item));
+                                    }
+                                }
+                            }
+                        } else {
+                            for x in $deque.read().unwrap().iter() {
+                                if x.0 > $req.params.ts_range[1] {
+                                    break;
+                                }
+
+                                if x.0 >= $req.params.ts_range[0] {
+                                    if let Some(v) = x.1.get(&submethod) {
+                                        final_k.push(
+                                            strftime("%m-%d %H:%M:%S", &at(Timespec::new(x.0 as i64, 0)))
+                                            .unwrap_or("".to_owned()));
+                                        final_v.push(handler(&v, &dev, &item));
+                                    }
+                                }
+                            }
+                        }
 
                         break (final_k, final_v);
                     } else {
@@ -225,8 +299,7 @@ macro_rules! db_worker {
                             //final_k.push(r[i].0);
                             final_k.push(
                                 strftime("%m-%d %H:%M:%S", &at(Timespec::new(r[i].0, 0)))
-                                .unwrap_or("".to_owned())
-                                );
+                                .unwrap_or("".to_owned()));
                             final_v.push(v);
                         }
                     }
@@ -250,7 +323,7 @@ macro_rules! res {
 }
 
 macro_rules! go {
-    ($req: expr, $deque: expr, $cb_finder: expr) => {
+    ($req: expr, $deque: expr, $get_cb: expr) => {
         {
             let reqid = $req.id;
             match $deque.read().unwrap().get(0) {
@@ -265,7 +338,7 @@ macro_rules! go {
                 },
 
                 Some(dq) if dq.0 < ($req.params.ts_range[0] + super::CACHEINTERVAL as i32)=> {
-                    let tuple = cache_worker!($req, $cb_finder, $deque);
+                    let tuple = cache_worker!($req, $get_cb, $deque);
                     return res!(tuple, reqid);
                 },
 
@@ -279,7 +352,7 @@ macro_rules! go {
                     req_db.params.ts_range[1] = dq.0 - super::CACHEINTERVAL as i32;
                     let mut db_res = db_worker!(req_db);
 
-                    let mut cache_res = cache_worker!($req, $cb_finder, $deque);
+                    let mut cache_res = cache_worker!($req, $get_cb, $deque);
 
                     let res = serde_json::to_string(
                             &(db_res.0.append(&mut cache_res.0), db_res.1.append(&mut cache_res.1))
@@ -293,7 +366,7 @@ macro_rules! go {
 }
 
 fn worker(body: &Vec<u8>) -> Result<(String, i32), (String, i32)> {
-    let req: Req;
+    let mut req: Req;
     match serde_json::from_slice(body) {
         Ok(r) => req = r,
         Err(e) => {
@@ -302,26 +375,22 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), (String, i32)> {
         }
     }
 
-    match req.method.as_str() {
-        "sv_ecs" => {
-            match req.params.item {
-                (_, None, None) => go!(req, aliyun::CACHE_ECS, aliyun::ecs::Inner::get_cb),
-                //(_, Some(dev), _) => {
-                //    match dev.as_str() {
-                //        // "disk" => go!(req, aliyun::CACHE_ECS, aliyun::ecs::disk::Disk::get_cb),
-                //        // "netif" => go!(req, aliyun::CACHE_ECS, aliyun::ecs::netif::NetIf::get_cb),
-                //        _ => {
-                //            err!("");
-                //            return Err(("params invalid".to_owned(), req.id));
-                //        }
-                //    }
-                //},
-                _ => {
-                    err!("");
-                    return Err(("params invalid".to_owned(), req.id));
-                }
+    match req.params.interval {
+        Some(itv) => {
+            // 若请求的数据间隔小于缓存标准，则须从DB中直接提取
+            if CACHEINTERVAL as i32 > itv {
+                let reqid = req.id;
+                let tuple = db_worker!(req);
+                return res!(tuple, reqid);
             }
         },
+        None => {
+            req.params.interval = Some(CACHEINTERVAL as i32);  // 不指定，默认 300s
+        }
+    }
+
+    match req.method.as_str() {
+        "sv_ecs" => go!(req, aliyun::CACHE_ECS, aliyun::ecs::Inner::get_cb),
         // "sv_slb" => go!(req, aliyun::CACHE_SLB, aliyun::slb::Inner::get_cb),
         // "sv_rds" => go!(req, aliyun::CACHE_RDS, aliyun::rds::Inner::get_cb),
         // "sv_mongodb" => go!(req, aliyun::CACHE_MONGODB, aliyun::mongodb::Inner::get_cb),

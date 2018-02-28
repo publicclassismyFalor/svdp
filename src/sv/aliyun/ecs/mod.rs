@@ -69,19 +69,50 @@ impl Inner {
         }
     }
 
-    fn cpu_ratio(data: &Self) -> i32 { data.cpu_ratio as i32 }
-    fn mem_ratio(data: &Self) -> i32 { data.mem_ratio as i32 }
-    fn load5m(data: &Self) -> i32 { data.load5m }
-    fn load15m(data: &Self) -> i32 { data.load15m }
-    fn tcp(data: &Self) -> i32 { data.tcp }
+    fn cpu_ratio(me: &Self, _: &str, _: &str) -> i32 { me.cpu_ratio as i32 }
+    fn mem_ratio(me: &Self, _: &str, _: &str) -> i32 { me.mem_ratio as i32 }
+    fn load5m(me: &Self, _: &str, _: &str) -> i32 { me.load5m }
+    fn load15m(me: &Self, _: &str, _: &str) -> i32 { me.load15m }
+    fn tcp(me: &Self, _: &str, _: &str) -> i32 { me.tcp }
 
-    pub fn get_cb(me: &str) -> Option<fn(&Inner) -> i32> {
+    fn disk(me: &Self, dev: &str, item: &str) -> i32 {
+        if let Some(v) = me.disk.get(dev) {
+            match item {
+                "ratio" => v.ratio,
+                "rd" => v.rd,
+                "wr" => v.wr,
+                "rdtps" => v.rdtps,
+                "wrtps" => v.wrtps,
+                _ => -1
+            }
+        } else {
+            -1
+        }
+    }
+
+    fn netif(me: &Self, dev: &str, item: &str) -> i32 {
+        if let Some(v) = me.netif.get(dev) {
+            match item {
+                "rd" => v.rd,
+                "wr" => v.wr,
+                "rdtps" => v.rdtps,
+                "wrtps" => v.wrtps,
+                _ => -1
+            }
+        } else {
+            -1
+        }
+    }
+
+    pub fn get_cb(me: &str) -> Option<fn(&Inner, &str, &str) -> i32> {
         match me {
             "cpu_ratio" => Some(Inner::cpu_ratio),
             "mem_ratio" => Some(Inner::mem_ratio),
             "load5m" => Some(Inner::load5m),
             "load15m" => Some(Inner::load15m),
             "tcp" => Some(Inner::tcp),
+            "disk" => Some(Inner::disk),
+            "netif" => Some(Inner::netif),
             _ => None
         }
     }
