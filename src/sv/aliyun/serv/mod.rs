@@ -165,8 +165,8 @@ macro_rules! cache_worker {
                     } else {
                         (true, itv)
                     }
-                }
-                None => unreachable!(),
+                },
+                None => unreachable!()
             };
 
             match $req.params.item {
@@ -177,10 +177,8 @@ macro_rules! cache_worker {
                         } else {
                             cache_actor!(final_k, final_v, $req, handler, $deque, 1, &me, "", "");
                         }
-
-                        break (final_k, final_v);
                     } else {
-                        err!("");
+                        err!("0");
                         return Err(("params invalid".to_owned(), $req.id));
                     }
                 },
@@ -191,10 +189,8 @@ macro_rules! cache_worker {
                         } else {
                             cache_actor!(final_k, final_v, $req, handler, $deque, 1, &me, &dev, &item);
                         }
-
-                        break (final_k, final_v);
                     } else {
-                        err!("");
+                        err!("10");
                         return Err(("params invalid".to_owned(), $req.id));
                     }
                 },
@@ -203,13 +199,23 @@ macro_rules! cache_worker {
                     return Err(("params invalid".to_owned(), $req.id));
                 }
             }
+
+            /* return final tuple */
+            break (final_k, final_v);
         }
     }
 }
 
 macro_rules! db_worker {
     ($req: expr) => {
-        {
+        loop {
+            let mut final_k = vec![];
+            let mut final_v = vec![];
+
+            if $req.params.ts_range[0] > $req.params.ts_range[1] {
+                break (final_k, final_v);
+            }
+
             let pgconn;
             match DBPOOL.clone().get() {
                 Ok(conn) => pgconn = conn,
@@ -228,7 +234,7 @@ macro_rules! db_worker {
                     queryfilter = format!("'{}{},{},{},{}{}'", "{", $req.params.instance_id, submethod, dev, item, "}");
                 },
                 _ => {
-                    err!("");
+                    err!("20");
                     return Err(("invalid item".to_owned(), $req.id));
                 }
             }
@@ -247,7 +253,8 @@ macro_rules! db_worker {
             match pgconn.query(querysql.as_str(), &[]) {
                 Ok(q) => {
                     if q.is_empty() {
-                        return Ok(("[]".to_owned(), $req.id));
+                        err!("30 empty res");
+                        break (final_k, final_v);
                     } else {
                         rows = q;
                     }
@@ -257,9 +264,6 @@ macro_rules! db_worker {
                     return Err(("db query err".to_owned(), $req.id));
                 }
             }
-
-            let mut final_k = vec![];
-            let mut final_v = vec![];
 
             let row = rows.get(0);
             if let Some(orig) = row.get(0) {
@@ -277,15 +281,14 @@ macro_rules! db_worker {
                         }
                     }
                 } else {
-                    err!("");
+                    err!("40");
                     return Err(("server err".to_owned(), $req.id));
                 }
             } else {
-                err!("");
-                return Err(("server db err".to_owned(), $req.id));
+                err!("50 empty res");
             }
 
-            (final_k, final_v)
+            break (final_k, final_v);
         }
     }
 }
@@ -327,9 +330,15 @@ macro_rules! go {
 
                     let mut cache_res = cache_worker!($req, $get_cb, $deque);
 
-                    let res = serde_json::to_string(
-                            &(db_res.0.append(&mut cache_res.0), db_res.1.append(&mut cache_res.1))
-                        ).unwrap();
+                    let res;
+                    if 0 < db_res.0.len() {
+                        res = serde_json::to_string(&(
+                                db_res.0.append(&mut cache_res.0),
+                                db_res.1.append(&mut cache_res.1)
+                                )).unwrap();
+                    } else {
+                        res = serde_json::to_string(&(cache_res.0, cache_res.1)).unwrap();
+                    }
 
                     return Ok((res, reqid));
                 }
@@ -369,6 +378,9 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), (String, i32)> {
         // "sv_mongodb" => go!(req, aliyun::CACHE_MONGODB, aliyun::mongodb::Inner::get_cb),
         // "sv_redis" => go!(req, aliyun::CACHE_REDIS, aliyun::redis::Inner::get_cb),
         // "sv_memcache" => go!(req, aliyun::CACHE_MEMCACHE, aliyun::memcache::Inner::get_cb),
-        _ => unreachable!()
+        _ => {
+            err!(req.method);
+            return Err(("method invalid".to_owned(), req.id));
+        }
     }
 }
