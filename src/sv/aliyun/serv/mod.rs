@@ -3,7 +3,6 @@ use std::io::{Error, ErrorKind};
 use std::net::{TcpStream, TcpListener};
 
 use std::time::Duration;
-use ::time::{Timespec, strftime, at};
 
 /* async http serv */
 use iron::prelude::*;
@@ -140,9 +139,7 @@ macro_rules! cache_actor {
 
             if x.0 >= $req.params.ts_range[0] && 0 == x.0 % $condition {
                 if let Some(v) = x.1.get(&$req.params.instance_id) {
-                    $final_k.push(
-                        strftime("%m-%d %H:%M:%S", &at(Timespec::new(x.0 as i64, 0)))
-                        .unwrap_or("".to_owned()));
+                    $final_k.push(x.0);
                     $final_v.push($cb(&v, $dev, $item));
                 }
             }
@@ -153,8 +150,8 @@ macro_rules! cache_actor {
 macro_rules! cache_worker {
     ($req: expr, $get_cb: expr, $deque: expr) => {
         loop {
-            let mut final_k: Vec<String> = vec![];
-            let mut final_v: Vec<i32> = vec![];
+            let mut final_k = vec![];
+            let mut final_v = vec![];
 
             let (has_itv, itv) = match $req.params.interval {
                 Some(itv) => {
@@ -266,15 +263,12 @@ macro_rules! db_worker {
             let row = rows.get(0);
             if let Some(orig) = row.get(0) {
                 let orig: String = orig;
-                if let Ok(mut r) = serde_json::from_str::<Vec<(i64, Option<i32>)>>(&orig) {
+                if let Ok(mut r) = serde_json::from_str::<Vec<(i32, Option<i32>)>>(&orig) {
                     r.sort_by(|a, b|a.0.cmp(&b.0));
                     let len = r.len();
                     for i in 0..len {
                         if let Some(v) = r[i].1 {
-                            //final_k.push(r[i].0);
-                            final_k.push(
-                                strftime("%m-%d %H:%M:%S", &at(Timespec::new(r[i].0, 0)))
-                                .unwrap_or("".to_owned()));
+                            final_k.push(r[i].0);
                             final_v.push(v);
                         }
                     }
