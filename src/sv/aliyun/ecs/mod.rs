@@ -22,7 +22,7 @@ use super::{DATA, BASESTAMP, INTERVAL, cmd_exec};
 
 pub const ACSITEM: &str = "acs_ecs_dashboard";
 //pub const MSPERIOD: u64 = 15000;  // ms period
-pub const MSPERIOD: u64 = super::CACHEINTERVAL * 1000;
+pub const MSPERIOD: u64 = (super::CACHEINTERVAL as u64) * 1000;
 
 //enum DT {
 //    Ecs,
@@ -329,16 +329,17 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
     /* write final result to DB */
     if let Ok(pgconn) = Connection::connect(::CONF.pg_login_url.as_str(), TlsMode::None) {
         for (ts, v) in holder.lock().unwrap().iter() {
+            let ts = (ts / 1000) as i32;
             if let Err(e) = pgconn.execute(
                 "INSERT INTO sv_ecs VALUES ($1, $2)",
                 &[
-                    &((ts / 1000) as i32),
+                    &ts,
                     &serde_json::to_value(&v.data).unwrap()
                 ]) {
                 err!(e);
             }
 
-            if 0 == *ts % super::CACHEINTERVAL {
+            if 0 == ts % super::CACHEINTERVAL {
                 let mut cache_deque = super::CACHE_ECS.write().unwrap();
 
                 /* 若系统内存占用已超过阀值，则销毁最旧的数据条目 */
@@ -346,7 +347,7 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
                     cache_deque.pop_front();
                 }
 
-                cache_deque.push_back((*ts as i32, v.data.clone()));
+                cache_deque.push_back((ts, v.data.clone()));
             }
         }
     } else {
