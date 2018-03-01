@@ -332,6 +332,7 @@ macro_rules! go {
 }
 
 fn worker(body: &Vec<u8>) -> Result<(String, i32), (String, i32)> {
+    /* DEBUG */err!(String::from_utf8_lossy(body));
     let mut req: Req;
     match serde_json::from_slice(body) {
         Ok(r) => req = r,
