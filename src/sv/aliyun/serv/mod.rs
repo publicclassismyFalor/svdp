@@ -286,7 +286,7 @@ macro_rules! db_worker {
 }
 macro_rules! res {
     ($res: expr, $reqid: expr) => {
-        Ok((serde_json::to_string(&($res.0, $res.1)).unwrap(), $reqid))
+        Ok((serde_json::to_string(&$res).unwrap(), $reqid))
     }
 }
 
@@ -320,7 +320,7 @@ macro_rules! go {
                                     db_res.1.append(&mut cache_res.1)
                                     )).unwrap();
                         } else {
-                            res = serde_json::to_string(&(cache_res.0, cache_res.1)).unwrap();
+                            res = serde_json::to_string(&cache_res).unwrap();
                         }
 
                         return Ok((res, reqid));
