@@ -18,7 +18,7 @@ use super::{DATA, BASESTAMP, INTERVAL};
 
 pub const ACSITEM: &str = "acs_memcache";
 //pub const MSPERIOD: u64 = 60000;
-pub const MSPERIOD: u64 = super::CACHEINTERVAL;
+pub const MSPERIOD: u64 = super::CACHEINTERVAL * 1000;
 
 /* key: time_stamp */
 pub struct Memcache {
