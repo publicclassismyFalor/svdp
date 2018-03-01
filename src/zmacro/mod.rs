@@ -1,12 +1,18 @@
 macro_rules! errexit {
     ($x: expr) => {
-        eprintln!("[{}, {}] ==> {}", file!(), line!(), $x);
-        std::process::exit(1);
+        {
+            use colored::Colorize;
+            eprintln!("{} [{}, {}] ==> {}", ::time::strftime("%m-%d %H:%M:%S", &::time::now()).unwrap().red().bold(), file!(), line!(), $x);
+            ::std::process::exit(1);
+        }
     }
 }
 
 macro_rules! err {
     ($x: expr) => {
-        eprintln!("[{}, {}] ==> {}", file!(), line!(), $x);
+        {
+            use colored::Colorize;
+            eprintln!("{} [{}, {}] ==> {}", ::time::strftime("%m-%d %H:%M:%S", &::time::now()).unwrap().red().bold(), file!(), line!(), $x);
+        }
     }
 }

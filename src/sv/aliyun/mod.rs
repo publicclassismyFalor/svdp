@@ -1,119 +1,135 @@
-mod ecs;
-mod slb;
-mod rds;
-mod redis;
-mod memcache;
-mod mongodb;
+pub mod serv;
+
+pub mod ecs;
+pub mod slb;
+pub mod rds;
+pub mod redis;
+pub mod memcache;
+pub mod mongodb;
 
 use ::std;
 use std::thread;
 use std::time::Duration;
+use std::sync::{Arc, RwLock};
+use std::collections::{HashMap, VecDeque};
 
-use std::io::Error;
+use std::fs::File;
+use std::io::{Read, Error};
 use std::process::Command;
 
 use std::sync::mpsc;
 
+use ::regex::Regex;
 use ::serde_json;
 use serde_json::Value;
+
 use postgres::{Connection, TlsMode};
 
 pub const CMD: &str = "/tmp/aliyun_cmdb";
 pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
 
 pub static mut BASESTAMP: u64 = 0;
-pub const INTERVAL: u64 = 10 * 60 * 1000;
+pub const INTERVAL: u64 = 5 * 60 * 1000;
+pub const CACHEINTERVAL: u64 = INTERVAL / 1000;  // 与 INTERVAL 同步，确保每次只取一条数据，免去排序的麻烦
 
-pub fn argv_new_base(region: String) -> Vec<String> {
-    let mut argv = vec![
-        "-region".to_owned(),
-        region,
-        "-domain".to_owned(),
-        "metrics.aliyuncs.com".to_owned(),
-        "-apiName".to_owned(),
-        "QueryMetricList".to_owned(),
-        "-apiVersion".to_owned(),
-        "2017-03-01".to_owned(),
-        "Action".to_owned(),
-        "QueryMetricList".to_owned(),
-        "Length".to_owned(),
-        "1000".to_owned(),
-    ];
+type Ecs = Arc<RwLock<VecDeque<(i32, HashMap<String, ecs::Inner>)>>>;
+type Slb = Arc<RwLock<VecDeque<(i32, HashMap<String, slb::Inner>)>>>;
+type Rds = Arc<RwLock<VecDeque<(i32, HashMap<String, rds::Inner>)>>>;
+type MongoDB = Arc<RwLock<VecDeque<(i32, HashMap<String, mongodb::Inner>)>>>;
+type Redis = Arc<RwLock<VecDeque<(i32, HashMap<String, redis::Inner>)>>>;
+type Memcache = Arc<RwLock<VecDeque<(i32, HashMap<String, memcache::Inner>)>>>;
 
-    argv.push("StartTime".to_owned());
-    unsafe {
-        argv.push(BASESTAMP.to_string());
-    }
-
-    argv.push("EndTime".to_owned());
-    unsafe {
-        argv.push((BASESTAMP + INTERVAL).to_string());
-    }
-
-    argv
-}
-
-pub trait DATA {
-    type Holder;
-
-    fn argv_new(&self, region: String) -> Vec<String>;
-
-    fn get(&self, holder: Self::Holder, region: String) {
-        let mut extra = self.argv_new(region);
-
-        let (tx, rx) = mpsc::channel();
-
-        thread::spawn(move || {
-            if let Ok(ret) = cmd_exec(extra.clone()) {
-                let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
-                if Value::Null == v {
-                    return;
-                }
-
-                tx.send(ret).unwrap();
-
-                if let Value::String(ref cursor) = v["Cursor"] {
-                    extra.push("Cursor".to_owned());
-                    extra.push((*cursor).clone());
-
-                    while let Ok(ret) = cmd_exec(extra.clone()) {
-                        let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
-                        if Value::Null == v {
-                            return;
-                        }
-
-                        tx.send(ret).unwrap();
-
-                        if let Value::String(ref cursor) = v["Cursor"] {
-                            extra.pop();
-                            extra.push((*cursor).clone());
-                        } else {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
-
-        for r in rx {
-            self.insert(&holder, r);
-        }
-    }
-
-    fn insert(&self, holder: &Self::Holder, data: Vec<u8>);
+lazy_static! {
+    pub static ref CACHE_ECS: Ecs = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_SLB: Slb = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_RDS: Rds = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_MONGODB: MongoDB = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_REDIS: Redis = Arc::new(RwLock::new(VecDeque::new()));
+    pub static ref CACHE_MEMCACHE: Memcache = Arc::new(RwLock::new(VecDeque::new()));
 }
 
 pub fn go() {
     let ts_now = || 1000 * std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-    unsafe { BASESTAMP = ts_now() / INTERVAL * INTERVAL - 2 * INTERVAL; }
 
     let pgconn = Connection::connect(::CONF.pg_login_url.as_str(), TlsMode::None).unwrap();
+    pgconn.execute("CREATE TABLE IF NOT EXISTS sv_meta (last_basestamp int)", &[]).unwrap();
 
-    let tbsuffix = &["ecs", "slb", "rds", "redis", "memcache", "mongodb"];
+    let rows = pgconn.query("SELECT last_basestamp FROM sv_meta", &[]).unwrap();
+    if rows.is_empty() {
+        unsafe { BASESTAMP = ts_now() / INTERVAL * INTERVAL - 2 * INTERVAL; }
+    } else {
+        if let Some(row) = rows.get(0).get(0) {
+            let ts: i32 = row;
+            unsafe { BASESTAMP = 1000 * ts as u64; }
+        } else {
+            errexit!("db err");
+        }
+    }
+
+    let mut basestamp;
+    unsafe { basestamp = BASESTAMP; }
+
+    let tbsuffix = &["ecs", "slb", "rds", "mongodb", "redis", "memcache"];
 
     for tbsuf in tbsuffix {
         pgconn.execute(&format!("CREATE TABLE IF NOT EXISTS sv_{} (ts int, sv jsonb) PARTITION BY RANGE (ts)", tbsuf), &[]).unwrap();
     }
+
+    /* 从 DB 中缓存最多 30 天的数据 */
+    for i in 0..30 {
+        if mem_insufficient() {
+            break;
+        } else {
+            for j in 0..6 {
+                let rows = pgconn.query(
+                    &format!("SELECT ts, sv::text FROM sv_{} WHERE ts > {} AND ts <= {} AND ts % {} = 0 ORDER BY ts DESC",
+                             tbsuffix[j],
+                             basestamp / 1000 - (i + 1) * 24 * 3600,
+                             basestamp / 1000 - i * 24 * 3600,
+                             CACHEINTERVAL),
+                    &[]).unwrap();
+                if rows.is_empty() {
+                    break;
+                } else {
+                    for row in &rows {
+                        let ts: i32 = row.get(0);
+                        let sv: String = row.get(1);
+
+                        match j {
+                            0 => {
+                                let sv: HashMap<String, ecs::Inner> = serde_json::from_str(&sv).unwrap();
+                                CACHE_ECS.write().unwrap().push_front((ts, sv));
+                            },
+                            1 => {
+                                let sv: HashMap<String, slb::Inner> = serde_json::from_str(&sv).unwrap();
+                                CACHE_SLB.write().unwrap().push_front((ts, sv));
+                            },
+                            2 => {
+                                let sv: HashMap<String, rds::Inner> = serde_json::from_str(&sv).unwrap();
+                                CACHE_RDS.write().unwrap().push_front((ts, sv));
+                            },
+                            3 => {
+                                let sv: HashMap<String, mongodb::Inner> = serde_json::from_str(&sv).unwrap();
+                                CACHE_MONGODB.write().unwrap().push_front((ts, sv));
+                            },
+                            4 => {
+                                let sv: HashMap<String, redis::Inner> = serde_json::from_str(&sv).unwrap();
+                                CACHE_REDIS.write().unwrap().push_front((ts, sv));
+                            },
+                            5 => {
+                                let sv: HashMap<String, memcache::Inner> = serde_json::from_str(&sv).unwrap();
+                                CACHE_MEMCACHE.write().unwrap().push_front((ts, sv));
+                            },
+                            _ => unreachable!()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /* 启动网络服务 */
+    start_serv();
 
     loop {
         let regions;
@@ -127,9 +143,6 @@ pub fn go() {
                 continue;
             }
         }
-
-        let mut basestamp;
-        unsafe { basestamp = BASESTAMP; }
 
         let mut tbmark = basestamp / 1000 / 3600;
         while (5 + ts_now() / 1000 / 3600) > tbmark {
@@ -187,63 +200,13 @@ pub fn go() {
 
             basestamp += INTERVAL;
             unsafe { BASESTAMP = basestamp; }
+
+            pgconn.execute("DELETE FROM sv_meta", &[]).unwrap();
+            pgconn.execute(&format!("INSERT INTO sv_meta VALUES ({})", basestamp / 1000), &[]).unwrap();
         }
 
         thread::sleep(Duration::from_millis(INTERVAL));
     }
 }
 
-fn get_region() -> Option<Vec<String>> {
-    let mut res: Vec<String> = Vec::new();
-    let extra = vec![
-        "-domain".to_owned(),
-        "ecs.aliyuncs.com".to_owned(),
-        "-apiName".to_owned(),
-        "DescribeRegions".to_owned(),
-        "-apiVersion".to_owned(),
-        "2014-05-26".to_owned(),
-        "Action".to_owned(),
-        "DescribeRegions".to_owned(),
-    ];
-
-    if let Ok(stdout) = cmd_exec(extra) {
-        let v: Value = serde_json::from_slice(&stdout).unwrap_or(Value::Null);
-        if Value::Null == v {
-            return None;
-        }
-
-        for x in 0.. {
-            if Value::Null == v["Regions"]["Region"][x] {
-                break;
-            } else {
-                if let Value::String(ref s) = v["Regions"]["Region"][x]["RegionId"] {
-                    res.push(s.to_string());
-                } else {
-                    return None;
-                }
-            }
-        }
-    } else {
-        return None;
-    }
-
-    Some(res)
-}
-
-fn cmd_exec(mut extra: Vec<String>) -> Result<Vec<u8>, Error> {
-    let mut argv: Vec<String> = Vec::new();
-
-    for x in ARGV.iter() {
-        argv.push((**x).to_string());
-    }
-
-    argv.append(&mut extra);
-
-    let output = Command::new(CMD).args(argv).output() ?;
-
-    if output.status.success() {
-        return Ok(output.stdout);
-    } else {
-        return Err(Error::from_raw_os_error(output.status.code().unwrap_or(1)));
-    }
-}
+include!("mod_include.rs");

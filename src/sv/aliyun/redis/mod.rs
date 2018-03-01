@@ -17,14 +17,15 @@ use std::sync::{Arc, Mutex};
 use super::{DATA, BASESTAMP, INTERVAL};
 
 pub const ACSITEM: &str = "acs_kvstore";
-pub const MSPERIOD: u64 = 60000;
+//pub const MSPERIOD: u64 = 60000;
+pub const MSPERIOD: u64 = super::CACHEINTERVAL;
 
 /* key: time_stamp */
 pub struct Redis {
     data: HashMap<String, Inner>,  /* K: instance_id, V: Supervisor Data */
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Inner {
     cpu_ratio: i16,
     mem_ratio: i16,
@@ -49,6 +50,23 @@ impl Inner {
             conn_ratio: 0,
             rd: 0,
             wr: 0,
+        }
+    }
+
+    fn cpu_ratio(me: &Self, _: &str, _: &str) -> i32 { me.cpu_ratio as i32 }
+    fn mem_ratio(me: &Self, _: &str, _: &str) -> i32 { me.mem_ratio as i32 }
+    fn conn_ratio(me: &Self, _: &str, _: &str) -> i32 { me.conn_ratio as i32 }
+    fn rd(me: &Self, _: &str, _: &str) -> i32 { me.rd }
+    fn wr(me: &Self, _: &str, _: &str) -> i32 { me.wr }
+
+    pub fn get_cb(me: &str) -> Option<fn(&Inner, &str, &str) -> i32> {
+        match me {
+            "cpu_ratio" => Some(Inner::cpu_ratio),
+            "mem_ratio" => Some(Inner::mem_ratio),
+            "conn_ratio" => Some(Inner::conn_ratio),
+            "rd" => Some(Inner::rd),
+            "wr" => Some(Inner::wr),
+            _ => None
         }
     }
 }
@@ -99,6 +117,17 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Redis>>>, region: String) {
                     &serde_json::to_value(&v.data).unwrap()
                 ]) {
                 err!(e);
+            }
+
+            if 0 == *ts % super::CACHEINTERVAL {
+                let mut cache_deque = super::CACHE_REDIS.write().unwrap();
+
+                /* 若系统内存占用已超过阀值，则销毁最旧的数据条目 */
+                if super::mem_insufficient() {
+                    cache_deque.pop_front();
+                }
+
+                cache_deque.push_back((*ts as i32, v.data.clone()));
             }
         }
     } else {

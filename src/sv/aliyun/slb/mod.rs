@@ -17,14 +17,15 @@ use std::sync::{Arc, Mutex};
 use super::{DATA, BASESTAMP, INTERVAL};
 
 pub const ACSITEM: &str = "acs_slb_dashboard";
-pub const MSPERIOD: u64 = 60000;  // ms period
+//pub const MSPERIOD: u64 = 60000;  // ms period
+pub const MSPERIOD: u64 = super::CACHEINTERVAL;
 
 /* key: time_stamp */
 pub struct Slb {
     data: HashMap<String, Inner>,  /* K: instance_id, V: Supervisor Data */
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Inner {
     rd: i32,  /* kbytes */
     wr: i32,
@@ -49,6 +50,23 @@ impl Inner {
             rdtps: 0,
             wrtps: 0,
             conn: 0,
+        }
+    }
+
+    fn rd(me: &Self, _: &str, _: &str) -> i32 { me.rd }
+    fn wr(me: &Self, _: &str, _: &str) -> i32 { me.wr }
+    fn rdtps(me: &Self, _: &str, _: &str) -> i32 { me.rdtps }
+    fn wrtps(me: &Self, _: &str, _: &str) -> i32 { me.wrtps }
+    fn conn(me: &Self, _: &str, _: &str) -> i32 { me.conn }
+
+    pub fn get_cb(me: &str) -> Option<fn(&Inner, &str, &str) -> i32> {
+        match me {
+            "rd" => Some(Inner::rd),
+            "wr" => Some(Inner::wr),
+            "rdtps" => Some(Inner::rdtps),
+            "wrtps" => Some(Inner::wrtps),
+            "conn" => Some(Inner::conn),
+            _ => None
         }
     }
 }
@@ -99,6 +117,17 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Slb>>>, region: String) {
                     &serde_json::to_value(&v.data).unwrap()
                 ]) {
                 err!(e);
+            }
+
+            if 0 == *ts % super::CACHEINTERVAL {
+                let mut cache_deque = super::CACHE_SLB.write().unwrap();
+
+                /* 若系统内存占用已超过阀值，则销毁最旧的数据条目 */
+                if super::mem_insufficient() {
+                    cache_deque.pop_front();
+                }
+
+                cache_deque.push_back((*ts as i32, v.data.clone()));
             }
         }
     } else {

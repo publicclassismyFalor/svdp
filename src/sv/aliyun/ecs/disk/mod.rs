@@ -14,7 +14,7 @@ pub mod wr;
 pub mod rd_tps;
 pub mod wr_tps;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Disk {
     pub ratio: i32,  /* usage percent */
 

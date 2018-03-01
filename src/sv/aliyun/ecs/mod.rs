@@ -4,8 +4,8 @@ mod load5m;
 mod load15m;
 mod tcp;
 
-mod disk;
-mod netif;
+pub mod disk;
+pub mod netif;
 
 mod base;
 
@@ -21,7 +21,8 @@ use std::sync::{mpsc, Arc, Mutex};
 use super::{DATA, BASESTAMP, INTERVAL, cmd_exec};
 
 pub const ACSITEM: &str = "acs_ecs_dashboard";
-pub const MSPERIOD: u64 = 15000;  // ms period
+//pub const MSPERIOD: u64 = 15000;  // ms period
+pub const MSPERIOD: u64 = super::CACHEINTERVAL;
 
 //enum DT {
 //    Ecs,
@@ -31,28 +32,7 @@ pub const MSPERIOD: u64 = 15000;  // ms period
 /* key: time_stamp */
 pub struct Ecs {
     data: HashMap<String, Inner>,  /* K: instance_id, V: Supervisor Data */
-
     //disk: HashMap<String, String>,  /* K: Device, V: DiskId */
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Inner {
-    cpu_ratio: i16,
-    mem_ratio: i16,
-    load5m: i32,
-    load15m: i32,
-    tcp: i32,  /* tcp conn cnt */
-
-    disk: HashMap<String, disk::Disk>,  /* K: device */
-    netif: HashMap<String, netif::NetIf>,  /* K: IP */
-}
-
-struct Meta;
-
-trait META {
-    fn argv_new(&self, region: String) -> Vec<String>;
-    fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>);
-    //fn reflect(&self) -> DT;
 }
 
 impl Ecs {
@@ -62,6 +42,18 @@ impl Ecs {
             //disk: HashMap::new(),
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Inner {
+    cpu_ratio: i16,
+    mem_ratio: i16,
+    load5m: i32,
+    load15m: i32,
+    tcp: i32,  /* tcp conn cnt */
+
+    disk: HashMap<String, disk::Disk>,  /* K: device */
+    netif: HashMap<String, netif::NetIf>,  /* K: IP */
 }
 
 impl Inner {
@@ -77,6 +69,62 @@ impl Inner {
             netif: HashMap::new(),
         }
     }
+
+    fn cpu_ratio(me: &Self, _: &str, _: &str) -> i32 { me.cpu_ratio as i32 }
+    fn mem_ratio(me: &Self, _: &str, _: &str) -> i32 { me.mem_ratio as i32 }
+    fn load5m(me: &Self, _: &str, _: &str) -> i32 { me.load5m }
+    fn load15m(me: &Self, _: &str, _: &str) -> i32 { me.load15m }
+    fn tcp(me: &Self, _: &str, _: &str) -> i32 { me.tcp }
+
+    fn disk(me: &Self, dev: &str, item: &str) -> i32 {
+        if let Some(v) = me.disk.get(dev) {
+            match item {
+                "ratio" => v.ratio,
+                "rd" => v.rd,
+                "wr" => v.wr,
+                "rdtps" => v.rdtps,
+                "wrtps" => v.wrtps,
+                _ => -1
+            }
+        } else {
+            -1
+        }
+    }
+
+    fn netif(me: &Self, dev: &str, item: &str) -> i32 {
+        if let Some(v) = me.netif.get(dev) {
+            match item {
+                "rd" => v.rd,
+                "wr" => v.wr,
+                "rdtps" => v.rdtps,
+                "wrtps" => v.wrtps,
+                _ => -1
+            }
+        } else {
+            -1
+        }
+    }
+
+    pub fn get_cb(me: &str) -> Option<fn(&Inner, &str, &str) -> i32> {
+        match me {
+            "cpu_ratio" => Some(Inner::cpu_ratio),
+            "mem_ratio" => Some(Inner::mem_ratio),
+            "load5m" => Some(Inner::load5m),
+            "load15m" => Some(Inner::load15m),
+            "tcp" => Some(Inner::tcp),
+            "disk" => Some(Inner::disk),
+            "netif" => Some(Inner::netif),
+            _ => None
+        }
+    }
+}
+
+struct Meta;
+
+trait META {
+    fn argv_new(&self, region: String) -> Vec<String>;
+    fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>);
+    //fn reflect(&self) -> DT;
 }
 
 impl META for Meta {
@@ -288,6 +336,17 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
                     &serde_json::to_value(&v.data).unwrap()
                 ]) {
                 err!(e);
+            }
+
+            if 0 == *ts % super::CACHEINTERVAL {
+                let mut cache_deque = super::CACHE_ECS.write().unwrap();
+
+                /* 若系统内存占用已超过阀值，则销毁最旧的数据条目 */
+                if super::mem_insufficient() {
+                    cache_deque.pop_front();
+                }
+
+                cache_deque.push_back((*ts as i32, v.data.clone()));
             }
         }
     } else {
