@@ -30,7 +30,7 @@ pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNk
 
 pub static mut BASESTAMP: u64 = 0;
 pub const INTERVAL: u64 = 5 * 60 * 1000;
-pub const CACHEINTERVAL: u64 = INTERVAL / 1000;  // 与 INTERVAL 同步，确保每次只取一条数据，免去排序的麻烦
+pub const CACHEINTERVAL: i32 = (INTERVAL / 1000) as i32;  // 与 INTERVAL 同步，确保每次只取一条数据，免去排序的麻烦
 
 type Ecs = Arc<RwLock<VecDeque<(i32, HashMap<String, ecs::Inner>)>>>;
 type Slb = Arc<RwLock<VecDeque<(i32, HashMap<String, slb::Inner>)>>>;
