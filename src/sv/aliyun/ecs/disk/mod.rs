@@ -108,7 +108,7 @@ impl DATA for Data {
     }
 
     fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>) {
-        let setter = |disk: &mut Disk, v: i32| disk.ratio = v;
+        let setter = |disk: &mut Disk, v: i32| disk.ratio = v * 10;
 
         insert(holder, data, setter);
     }
