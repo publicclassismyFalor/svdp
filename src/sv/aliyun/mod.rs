@@ -97,28 +97,46 @@ pub fn go() {
 
                         match j {
                             0 => {
-                                let sv: HashMap<String, ecs::Inner> = serde_json::from_str(&sv).unwrap();
-                                CACHE_ECS.write().unwrap().push_front((ts, sv));
+                                if let Ok(svb) = serde_json::from_str::<HashMap<String, ecs::Inner>>(&sv) {
+                                    CACHE_ECS.write().unwrap().push_front((ts, svb));
+                                } else {
+                                    err!(sv);
+                                }
                             },
                             1 => {
-                                let sv: HashMap<String, slb::Inner> = serde_json::from_str(&sv).unwrap();
-                                CACHE_SLB.write().unwrap().push_front((ts, sv));
+                                if let Ok(svb) = serde_json::from_str::<HashMap<String, slb::Inner>>(&sv) {
+                                    CACHE_SLB.write().unwrap().push_front((ts, svb));
+                                } else {
+                                    err!(sv);
+                                }
                             },
                             2 => {
-                                let sv: HashMap<String, rds::Inner> = serde_json::from_str(&sv).unwrap();
-                                CACHE_RDS.write().unwrap().push_front((ts, sv));
+                                if let Ok(svb) = serde_json::from_str::<HashMap<String, rds::Inner>>(&sv) {
+                                    CACHE_RDS.write().unwrap().push_front((ts, svb));
+                                } else {
+                                    err!(sv);
+                                }
                             },
                             3 => {
-                                let sv: HashMap<String, mongodb::Inner> = serde_json::from_str(&sv).unwrap();
-                                CACHE_MONGODB.write().unwrap().push_front((ts, sv));
+                                if let Ok(svb) = serde_json::from_str::<HashMap<String, mongodb::Inner>>(&sv) {
+                                    CACHE_MONGODB.write().unwrap().push_front((ts, svb));
+                                } else {
+                                    err!(sv);
+                                }
                             },
                             4 => {
-                                let sv: HashMap<String, redis::Inner> = serde_json::from_str(&sv).unwrap();
-                                CACHE_REDIS.write().unwrap().push_front((ts, sv));
+                                if let Ok(svb) = serde_json::from_str::<HashMap<String, redis::Inner>>(&sv) {
+                                    CACHE_REDIS.write().unwrap().push_front((ts, svb));
+                                } else {
+                                    err!(sv);
+                                }
                             },
                             5 => {
-                                let sv: HashMap<String, memcache::Inner> = serde_json::from_str(&sv).unwrap();
-                                CACHE_MEMCACHE.write().unwrap().push_front((ts, sv));
+                                if let Ok(svb) = serde_json::from_str::<HashMap<String, memcache::Inner>>(&sv) {
+                                    CACHE_MEMCACHE.write().unwrap().push_front((ts, svb));
+                                } else {
+                                    err!(sv);
+                                }
                             },
                             _ => unreachable!()
                         }
