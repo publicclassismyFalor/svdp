@@ -18,18 +18,26 @@ use std::io::Read;
 
 use std::sync::mpsc;
 
-use ::regex::Regex;
-use ::serde_json;
+use regex::Regex;
+
+use serde_json;
 use serde_json::Value;
-use ::rand::Rng;
-use ::reqwest;
+
+use rand::Rng;
+
+use reqwest;
+
+use data_encoding::BASE64;
+use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
+use ring::{digest, hmac};
 
 use postgres::{Connection, TlsMode};
 
 use ::time::{strftime, now_utc};
 
 pub const ACCESSID: &str = "LTAIHYRtkSXC1uTl";
-pub const ACCESSKEY: &str = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
+//pub const ACCESSKEY: &str = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
+pub const SIGKEY: &str = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV&";  // 即 ACCESSKEY 之后追加一个 '&'，用于 URL 签名 
 
 pub static mut BASESTAMP: u64 = 0;
 pub const INTERVAL: u64 = 5 * 60 * 1000;

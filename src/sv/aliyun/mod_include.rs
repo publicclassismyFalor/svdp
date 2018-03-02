@@ -105,11 +105,35 @@ fn get_region() -> Option<Vec<String>> {
 
 fn http_req(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
     argv.push(["AccessKeyId".to_owned(), ACCESSID.to_owned()]);
+    argv.sort();
 
-// TODO
+    let mut mid_str = String::new();
+    let argv_last_id = argv.len() - 1;
+
+    for i in 1..argv_last_id {
+        mid_str.push_str(&utf8_percent_encode(&argv[i][0], DEFAULT_ENCODE_SET).to_string());
+        mid_str.push_str("=");
+        mid_str.push_str(&utf8_percent_encode(&argv[i][1], DEFAULT_ENCODE_SET).to_string());
+        mid_str.push_str("&");
+    }
+
+    mid_str.push_str(&utf8_percent_encode(&argv[argv_last_id][0], DEFAULT_ENCODE_SET).to_string());
+    mid_str.push_str("=");
+    mid_str.push_str(&utf8_percent_encode(&argv[argv_last_id][1], DEFAULT_ENCODE_SET).to_string());
+
+    let str_to_sig = format!("GET&%2F&{}", mid_str);
+    let sigkey = hmac::SigningKey::new(&digest::SHA1, SIGKEY.as_bytes());
+    let sig = hmac::sign(&sigkey, str_to_sig.as_bytes());
+
+    let mut requrl = format!("http://{}?", argv[0][1]);
+    requrl.push_str(&mid_str);
+    requrl.push_str("&");
+    requrl.push_str("Signature");
+    requrl.push_str("=");
+    requrl.push_str(&BASE64.encode(sig.as_ref()));
 
     let mut ret = vec![];
-    if let Err(e) = SV_CLIENT.get("...FIXME...").send()?.read(&mut ret) {
+    if let Err(e) = SV_CLIENT.get(&requrl).send()?.read(&mut ret) {
         err!(e);
     }
 
