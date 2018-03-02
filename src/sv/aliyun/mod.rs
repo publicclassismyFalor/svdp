@@ -161,11 +161,11 @@ pub fn go() {
                     err!(e);
                 }
 
-                /* delete tables created before 10 days ago */
+                /* delete tables created before 90 days ago */
                 if let Err(e) = pgconn.execute(
                     &format!("DROP TABLE IF EXISTS sv_{}_{}",
                     tbsuf,
-                    tbmark - 1 - 240), &[]) {
+                    tbmark - 1 - 24 * 90), &[]) {
                     err!(e);
                 }
             }
