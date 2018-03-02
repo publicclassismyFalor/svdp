@@ -112,7 +112,7 @@ fn get_data(holder: Arc<Mutex<HashMap<u64, Slb>>>, region: String) {
         for (ts, v) in holder.lock().unwrap().iter() {
             let ts = (ts / 1000) as i32;
             if let Err(e) = pgconn.execute(
-                "INSERT INTO sv_ecs VALUES ($1, $2)",
+                "INSERT INTO sv_slb VALUES ($1, $2)",
                 &[
                     &ts,
                     &serde_json::to_value(&v.data).unwrap()
