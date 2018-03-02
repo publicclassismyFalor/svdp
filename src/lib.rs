@@ -5,6 +5,7 @@ extern crate num_cpus;
 extern crate colored;
 
 extern crate regex;
+extern crate rand;
 
 extern crate serde;
 extern crate serde_json;

@@ -15,18 +15,20 @@ use std::collections::{HashMap, VecDeque};
 
 use std::fs::File;
 use std::io::{Read, Error};
-use std::process::Command;
 
 use std::sync::mpsc;
 
 use ::regex::Regex;
 use ::serde_json;
 use serde_json::Value;
+use ::rand::Rng;
 
 use postgres::{Connection, TlsMode};
 
-pub const CMD: &str = "/tmp/aliyun_cmdb";
-pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
+use ::time::{strftime, now_utc};
+
+pub const ACCESSID: &str = "LTAIHYRtkSXC1uTl";
+pub const ACCESSKEY: &str = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
 
 pub static mut BASESTAMP: u64 = 0;
 pub const INTERVAL: u64 = 5 * 60 * 1000;

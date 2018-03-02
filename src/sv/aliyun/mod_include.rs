@@ -1,15 +1,15 @@
 pub trait DATA {
     type Holder;
 
-    fn argv_new(&self, region: String) -> Vec<String>;
+    fn argv_new(&self) -> Vec<[String; 2]>;
 
-    fn get(&self, holder: Self::Holder, region: String) {
-        let mut extra = self.argv_new(region);
+    fn get(&self, holder: Self::Holder) {
+        let mut argv = self.argv_new();
 
         let (tx, rx) = mpsc::channel();
 
         thread::spawn(move || {
-            if let Ok(ret) = cmd_exec(extra.clone()) {
+            if let Ok(ret) = cmd_exec(argv.clone()) {
                 let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
                 if Value::Null == v {
                     return;
@@ -18,10 +18,9 @@ pub trait DATA {
                 tx.send(ret).unwrap();
 
                 if let Value::String(ref cursor) = v["Cursor"] {
-                    extra.push("Cursor".to_owned());
-                    extra.push((*cursor).clone());
+                    argv.push(["Cursor".to_owned(), (*cursor).clone()]);
 
-                    while let Ok(ret) = cmd_exec(extra.clone()) {
+                    while let Ok(ret) = cmd_exec(argv.clone()) {
                         let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
                         if Value::Null == v {
                             return;
@@ -30,8 +29,8 @@ pub trait DATA {
                         tx.send(ret).unwrap();
 
                         if let Value::String(ref cursor) = v["Cursor"] {
-                            extra.pop();
-                            extra.push((*cursor).clone());
+                            argv.pop();
+                            argv.push(["Cursor".to_owned(), (*cursor).clone()]);
                         } else {
                             break;
                         }
@@ -51,30 +50,22 @@ pub trait DATA {
 
 
 
-pub fn argv_new_base(region: String) -> Vec<String> {
+pub fn argv_new_base() -> Vec<[String; 2]> {
     let mut argv = vec![
-        "-region".to_owned(),
-        region,
-        "-domain".to_owned(),
-        "metrics.aliyuncs.com".to_owned(),
-        "-apiName".to_owned(),
-        "QueryMetricList".to_owned(),
-        "-apiVersion".to_owned(),
-        "2017-03-01".to_owned(),
-        "Action".to_owned(),
-        "QueryMetricList".to_owned(),
-        "Length".to_owned(),
-        "1000".to_owned(),
+        ["Domain".to_owned(), "metrics.aliyuncs.com".to_owned()],
+        ["Version".to_owned(), "2017-03-01".to_owned()],
+        ["Format".to_owned(), "JSON".to_owned()],
+        ["Timestamp".to_owned(), strftime("%Y-%m-%dT%H:%M:%SZ", &now_utc()).unwrap()],
+        ["SignatureMethod".to_owned(), "HMAC-SHA1".to_owned()],
+        ["SignatureVersion".to_owned(), "1.0".to_owned()],
+        ["SignatureNonce".to_owned(), ::rand::thread_rng().gen::<i32>().to_string()],
+        ["Action".to_owned(), "QueryMetricList".to_owned()],
+        ["Length".to_owned(), "1000".to_owned()],
     ];
 
-    argv.push("StartTime".to_owned());
     unsafe {
-        argv.push(BASESTAMP.to_string());
-    }
-
-    argv.push("EndTime".to_owned());
-    unsafe {
-        argv.push((BASESTAMP + INTERVAL).to_string());
+        argv.push(["StartTime".to_owned(), BASESTAMP.to_string()]);
+        argv.push(["EndTime".to_owned(), (BASESTAMP + INTERVAL).to_string()]);
     }
 
     argv
@@ -82,18 +73,13 @@ pub fn argv_new_base(region: String) -> Vec<String> {
 
 fn get_region() -> Option<Vec<String>> {
     let mut res: Vec<String> = Vec::new();
-    let extra = vec![
-        "-domain".to_owned(),
-        "ecs.aliyuncs.com".to_owned(),
-        "-apiName".to_owned(),
-        "DescribeRegions".to_owned(),
-        "-apiVersion".to_owned(),
-        "2014-05-26".to_owned(),
-        "Action".to_owned(),
-        "DescribeRegions".to_owned(),
+    let argv = vec![
+        ["Domain".to_owned(), "ecs.aliyuncs.com".to_owned()],
+        ["Version".to_owned(), "2014-05-26".to_owned()],
+        ["Action".to_owned(), "DescribeRegions".to_owned()],
     ];
 
-    if let Ok(stdout) = cmd_exec(extra) {
+    if let Ok(stdout) = cmd_exec(argv) {
         let v: Value = serde_json::from_slice(&stdout).unwrap_or(Value::Null);
         if Value::Null == v {
             return None;
@@ -117,22 +103,11 @@ fn get_region() -> Option<Vec<String>> {
     Some(res)
 }
 
-fn cmd_exec(mut extra: Vec<String>) -> Result<Vec<u8>, Error> {
-    let mut argv: Vec<String> = Vec::new();
+// TODO
+fn cmd_exec(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, Error> {
+    argv.push(["AccessKeyId".to_owned(), ACCESSID.to_owned()]);
 
-    for x in ARGV.iter() {
-        argv.push((**x).to_string());
-    }
-
-    argv.append(&mut extra);
-
-    let output = Command::new(CMD).args(argv).output() ?;
-
-    if output.status.success() {
-        return Ok(output.stdout);
-    } else {
-        return Err(Error::from_raw_os_error(output.status.code().unwrap_or(1)));
-    }
+    Ok(vec![])
 }
 
 /* read from /proc/meminfo */

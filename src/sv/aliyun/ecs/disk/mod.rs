@@ -36,23 +36,21 @@ impl Disk {
     }
 }
 
-//pub struct Meta();
+//pub struct Meta;
 
 //impl META for Meta {
-//    fn argv_new(&self, region: String) -> Vec<String> {
+//    fn argv_new(&self, region: String) -> Vec<[String; 2]> {
 //        vec![
-//            "-region".to_owned(),
-//            region.to_owned(),
-//            "-domain".to_owned(),
-//            "ecs.aliyuncs.com".to_owned(),
-//            "-apiName".to_owned(),
-//            "DescribeDisks".to_owned(),
-//            "-apiVersion".to_owned(),
-//            "2014-05-26".to_owned(),
-//            "Action".to_owned(),
-//            "DescribeDisks".to_owned(),
-//            "PageSize".to_owned(),
-//            "100".to_owned(),
+//            ["Domain".to_owned(), "ecs.aliyuncs.com".to_owned()],
+//            ["Version".to_owned(), "2014-05-26".to_owned()],
+//            ["Format".to_owned(), "JSON".to_owned()],
+//            ["Timestamp".to_owned(), strftime("%Y-%m-%dT%H:%M:%SZ", &now_utc()).unwrap()],
+//            ["SignatureMethod".to_owned(), "HMAC-SHA1".to_owned()],
+//            ["SignatureVersion".to_owned(), "1.0".to_owned()],
+//            ["SignatureNonce".to_owned(), ::rand::thread_rng().gen::<i32>().to_string()],
+//            ["Action".to_owned(), "DescribeDisks".to_owned()],
+//            ["PageSize".to_owned(), "100".to_owned()],
+//            ["RegionId".to_owned(), region],
 //        ]
 //    }
 //
@@ -100,9 +98,9 @@ pub struct Data;  /* disk ratio */
 impl DATA for Data {
     type Holder = Arc<Mutex<HashMap<u64, Ecs>>>;
 
-    fn argv_new(&self, region: String) -> Vec<String> {
-        let mut argv = base::argv_new(region);
-        argv.push("diskusage_utilization".to_owned());
+    fn argv_new(&self) -> Vec<[String; 2]> {
+        let mut argv = base::argv_new();
+        argv.push(["Metric".to_owned() ,"diskusage_utilization".to_owned()]);
 
         argv
     }
