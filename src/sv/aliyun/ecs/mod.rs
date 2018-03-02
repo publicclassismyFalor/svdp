@@ -130,11 +130,11 @@ trait META {
 impl META for Meta {
     fn argv_new(&self, region: String) -> Vec<[String; 2]> {
         vec![
+            ["Domain".to_owned(), "ecs.aliyuncs.com".to_owned()],
             ["Version".to_owned(), "2014-05-26".to_owned()],
             ["Action".to_owned(), "DescribeInstances".to_owned()],
             ["PageSize".to_owned(), "100".to_owned()],
             ["RegionId".to_owned(), region],
-            ["Domain".to_owned(), "ecs.aliyuncs.com".to_owned()],  // 此项置于最末，方便弹出
         ]
     }
 

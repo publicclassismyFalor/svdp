@@ -52,10 +52,10 @@ pub trait DATA {
 
 pub fn argv_new_base() -> Vec<[String; 2]> {
     let mut argv = vec![
+        ["Domain".to_owned(), "metrics.aliyuncs.com".to_owned()],
         ["Version".to_owned(), "2017-03-01".to_owned()],
         ["Action".to_owned(), "QueryMetricList".to_owned()],
         ["Length".to_owned(), "1000".to_owned()],
-        ["Domain".to_owned(), "metrics.aliyuncs.com".to_owned()],  // 此项置于最末，方便弹出
     ];
 
     unsafe {
@@ -69,9 +69,9 @@ pub fn argv_new_base() -> Vec<[String; 2]> {
 fn get_region() -> Option<Vec<String>> {
     let mut res: Vec<String> = Vec::new();
     let argv = vec![
+        ["Domain".to_owned(), "ecs.aliyuncs.com".to_owned()],
         ["Version".to_owned(), "2014-05-26".to_owned()],
         ["Action".to_owned(), "DescribeRegions".to_owned()],
-        ["Domain".to_owned(), "ecs.aliyuncs.com".to_owned()],  // 此项置于最末，方便弹出
     ];
 
     if let Ok(ret) = http_req(argv) {
@@ -98,30 +98,34 @@ fn get_region() -> Option<Vec<String>> {
     Some(res)
 }
 
-fn http_req(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
-    /* must do this first_of_all !!! */
-    let domain = &argv.pop().unwrap()[1];
+fn http_req(argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
+    let domain = &argv[0][1];
 
-    argv.push(["AccessKeyId".to_owned(), ACCESSID.to_owned()]);
-    argv.push(["SignatureMethod".to_owned(), "HMAC-SHA1".to_owned()]);
-    argv.push(["SignatureVersion".to_owned(), "1.0".to_owned()]);
-    argv.push(["SignatureNonce".to_owned(), ::rand::thread_rng().gen::<i32>().to_string()]);
-    argv.push(["Format".to_owned(), "JSON".to_owned()]);
-    argv.push(["Timestamp".to_owned(), strftime("%Y-%m-%dT%H:%M:%SZ", &now_utc()).unwrap()]);
-    argv.sort();
+    let mut params = vec![];
+    for i in 1..argv.len() {
+        params.push(argv[i].clone());
+    }
+
+    params.push(["AccessKeyId".to_owned(), ACCESSID.to_owned()]);
+    params.push(["SignatureMethod".to_owned(), "HMAC-SHA1".to_owned()]);
+    params.push(["SignatureVersion".to_owned(), "1.0".to_owned()]);
+    params.push(["SignatureNonce".to_owned(), ::rand::thread_rng().gen::<i32>().to_string()]);
+    params.push(["Format".to_owned(), "JSON".to_owned()]);
+    params.push(["Timestamp".to_owned(), strftime("%Y-%m-%dT%H:%M:%SZ", &now_utc()).unwrap()]);
+    params.sort();
 
     let mut mid_str = String::new();
-    let last_id = argv.len() - 1;
+    let last_id = params.len() - 1;
 
     for i in 0..last_id {
-        mid_str.push_str(&byte_serialize(argv[i][0].as_bytes()).collect::<String>());
+        mid_str.push_str(&byte_serialize(params[i][0].as_bytes()).collect::<String>());
         mid_str.push_str("=");
-        mid_str.push_str(&byte_serialize(argv[i][1].as_bytes()).collect::<String>());
+        mid_str.push_str(&byte_serialize(params[i][1].as_bytes()).collect::<String>());
         mid_str.push_str("&");
     }
-    mid_str.push_str(&byte_serialize(argv[last_id][0].as_bytes()).collect::<String>());
+    mid_str.push_str(&byte_serialize(params[last_id][0].as_bytes()).collect::<String>());
     mid_str.push_str("=");
-    mid_str.push_str(&byte_serialize(argv[last_id][1].as_bytes()).collect::<String>());
+    mid_str.push_str(&byte_serialize(params[last_id][1].as_bytes()).collect::<String>());
 
     let str_to_sig = format!("GET&%2F&{}", byte_serialize(mid_str.as_bytes()).collect::<String>());
 
@@ -141,9 +145,15 @@ fn http_req(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
     requrl.push_str("=");
     requrl.push_str(&final_url_sig);
 
+    let mut resp = SV_CLIENT.get(&requrl).send()?;
     let mut ret = vec![];
-    if let Err(e) = SV_CLIENT.get(&requrl).send()?.read_to_end(&mut ret) {
-        err!(e);
+    match resp.status() {
+        reqwest::StatusCode::Ok => {
+            if let Err(e) = resp.read_to_end(&mut ret) {
+                err!(e);
+            }
+        },
+        s => err!(s)
     }
 
     Ok(ret)
