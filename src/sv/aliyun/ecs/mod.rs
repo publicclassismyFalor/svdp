@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
 
-use super::{DATA, BASESTAMP, INTERVAL, cmd_exec};
+use super::{DATA, BASESTAMP, INTERVAL, http_req};
 
 pub const ACSITEM: &str = "acs_ecs_dashboard";
 //pub const MSPERIOD: u64 = 15000;  // ms period
@@ -178,7 +178,7 @@ impl META for Meta {
 fn get_meta <T: META> (holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String, t: T) {
     let extra = t.argv_new(region.clone());
 
-    if let Ok(ret) = cmd_exec(extra.clone()) {
+    if let Ok(ret) = http_req(extra.clone()) {
         let v: Value = serde_json::from_slice(&ret).unwrap_or(Value::Null);
         if Value::Null == v {
             return;
@@ -204,7 +204,7 @@ fn get_meta <T: META> (holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String, t:
             let worker = |tx: mpsc::Sender<Vec<u8>>, page: u64, mut extra_: Vec<[String; 2]>| {
                 thread::spawn(move || {
                     extra_.push(["PageNumber".to_owned(), page.to_string()]);
-                    if let Ok(ret) = cmd_exec(extra_) {
+                    if let Ok(ret) = http_req(extra_) {
                         tx.send(ret).unwrap_or_else(|e|{ err!(e); });
                     }
                 });

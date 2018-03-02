@@ -9,7 +9,7 @@ pub trait DATA {
         let (tx, rx) = mpsc::channel();
 
         thread::spawn(move || {
-            if let Ok(ret) = cmd_exec(argv.clone()) {
+            if let Ok(ret) = http_req(argv.clone()) {
                 let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
                 if Value::Null == v {
                     return;
@@ -20,7 +20,7 @@ pub trait DATA {
                 if let Value::String(ref cursor) = v["Cursor"] {
                     argv.push(["Cursor".to_owned(), (*cursor).clone()]);
 
-                    while let Ok(ret) = cmd_exec(argv.clone()) {
+                    while let Ok(ret) = http_req(argv.clone()) {
                         let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
                         if Value::Null == v {
                             return;
@@ -79,8 +79,8 @@ fn get_region() -> Option<Vec<String>> {
         ["Action".to_owned(), "DescribeRegions".to_owned()],
     ];
 
-    if let Ok(stdout) = cmd_exec(argv) {
-        let v: Value = serde_json::from_slice(&stdout).unwrap_or(Value::Null);
+    if let Ok(ret) = http_req(argv) {
+        let v: Value = serde_json::from_slice(&ret).unwrap_or(Value::Null);
         if Value::Null == v {
             return None;
         }
@@ -104,7 +104,7 @@ fn get_region() -> Option<Vec<String>> {
 }
 
 // TODO
-fn cmd_exec(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, Error> {
+fn http_req(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, Error> {
     argv.push(["AccessKeyId".to_owned(), ACCESSID.to_owned()]);
 
     Ok(vec![])
