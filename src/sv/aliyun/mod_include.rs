@@ -52,15 +52,10 @@ pub trait DATA {
 
 pub fn argv_new_base() -> Vec<[String; 2]> {
     let mut argv = vec![
-        ["Domain".to_owned(), "metrics.aliyuncs.com".to_owned()],
         ["Version".to_owned(), "2017-03-01".to_owned()],
-        ["Format".to_owned(), "JSON".to_owned()],
-        ["Timestamp".to_owned(), strftime("%Y-%m-%dT%H:%M:%SZ", &now_utc()).unwrap()],
-        ["SignatureMethod".to_owned(), "HMAC-SHA1".to_owned()],
-        ["SignatureVersion".to_owned(), "1.0".to_owned()],
-        ["SignatureNonce".to_owned(), ::rand::thread_rng().gen::<i32>().to_string()],
         ["Action".to_owned(), "QueryMetricList".to_owned()],
         ["Length".to_owned(), "1000".to_owned()],
+        ["Domain".to_owned(), "metrics.aliyuncs.com".to_owned()],  // 此项置于最末，方便弹出
     ];
 
     unsafe {
@@ -74,9 +69,9 @@ pub fn argv_new_base() -> Vec<[String; 2]> {
 fn get_region() -> Option<Vec<String>> {
     let mut res: Vec<String> = Vec::new();
     let argv = vec![
-        ["Domain".to_owned(), "ecs.aliyuncs.com".to_owned()],
         ["Version".to_owned(), "2014-05-26".to_owned()],
         ["Action".to_owned(), "DescribeRegions".to_owned()],
+        ["Domain".to_owned(), "ecs.aliyuncs.com".to_owned()],  // 此项置于最末，方便弹出
     ];
 
     if let Ok(ret) = http_req(argv) {
@@ -104,36 +99,50 @@ fn get_region() -> Option<Vec<String>> {
 }
 
 fn http_req(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
+    /* must do this first_of_all !!! */
+    let domain = &argv.pop().unwrap()[1];
+
     argv.push(["AccessKeyId".to_owned(), ACCESSID.to_owned()]);
+    argv.push(["SignatureMethod".to_owned(), "HMAC-SHA1".to_owned()]);
+    argv.push(["SignatureVersion".to_owned(), "1.0".to_owned()]);
+    argv.push(["SignatureNonce".to_owned(), ::rand::thread_rng().gen::<i32>().to_string()]);
+    argv.push(["Format".to_owned(), "JSON".to_owned()]);
+    argv.push(["Timestamp".to_owned(), strftime("%Y-%m-%dT%H:%M:%SZ", &now_utc()).unwrap()]);
     argv.sort();
 
     let mut mid_str = String::new();
-    let argv_last_id = argv.len() - 1;
+    let last_id = argv.len() - 1;
 
-    for i in 1..argv_last_id {
-        mid_str.push_str(&utf8_percent_encode(&argv[i][0], DEFAULT_ENCODE_SET).to_string());
+    for i in 0..last_id {
+        mid_str.push_str(&byte_serialize(argv[i][0].as_bytes()).collect::<String>());
         mid_str.push_str("=");
-        mid_str.push_str(&utf8_percent_encode(&argv[i][1], DEFAULT_ENCODE_SET).to_string());
+        mid_str.push_str(&byte_serialize(argv[i][1].as_bytes()).collect::<String>());
         mid_str.push_str("&");
     }
-
-    mid_str.push_str(&utf8_percent_encode(&argv[argv_last_id][0], DEFAULT_ENCODE_SET).to_string());
+    mid_str.push_str(&byte_serialize(argv[last_id][0].as_bytes()).collect::<String>());
     mid_str.push_str("=");
-    mid_str.push_str(&utf8_percent_encode(&argv[argv_last_id][1], DEFAULT_ENCODE_SET).to_string());
+    mid_str.push_str(&byte_serialize(argv[last_id][1].as_bytes()).collect::<String>());
 
-    let str_to_sig = format!("GET&%2F&{}", mid_str);
+    let str_to_sig = format!("GET&%2F&{}", byte_serialize(mid_str.as_bytes()).collect::<String>());
+
+    let mid_str = mid_str.replace("+", "%20").replace("*", "%2A").replace("%7E", "~");
+    let str_to_sig = str_to_sig.replace("+", "%20").replace("*", "%2A").replace("%7E", "~");
+
     let sigkey = hmac::SigningKey::new(&digest::SHA1, SIGKEY.as_bytes());
     let sig = hmac::sign(&sigkey, str_to_sig.as_bytes());
 
-    let mut requrl = format!("http://{}?", argv[0][1]);
+    let final_url_sig = byte_serialize(BASE64.encode(sig.as_ref()).as_bytes()).collect::<String>();
+    let final_url_sig = final_url_sig.replace("+", "%20").replace("*", "%2A").replace("%7E", "~");
+
+    let mut requrl = format!("http://{}?", domain);
     requrl.push_str(&mid_str);
     requrl.push_str("&");
     requrl.push_str("Signature");
     requrl.push_str("=");
-    requrl.push_str(&BASE64.encode(sig.as_ref()));
+    requrl.push_str(&final_url_sig);
 
     let mut ret = vec![];
-    if let Err(e) = SV_CLIENT.get(&requrl).send()?.read(&mut ret) {
+    if let Err(e) = SV_CLIENT.get(&requrl).send()?.read_to_end(&mut ret) {
         err!(e);
     }
 

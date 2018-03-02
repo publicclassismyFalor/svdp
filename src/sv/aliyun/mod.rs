@@ -27,9 +27,9 @@ use rand::Rng;
 
 use reqwest;
 
-use data_encoding::BASE64;
-use url::percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
 use ring::{digest, hmac};
+use data_encoding::BASE64;
+use url::form_urlencoded::byte_serialize;
 
 use postgres::{Connection, TlsMode};
 
