@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
 
-use super::{DATA, BASESTAMP, INTERVAL, cmd_exec};
+use super::{DATA, BASESTAMP, INTERVAL, http_req};
 
 pub const ACSITEM: &str = "acs_ecs_dashboard";
 //pub const MSPERIOD: u64 = 15000;  // ms period
@@ -122,26 +122,19 @@ impl Inner {
 struct Meta;
 
 trait META {
-    fn argv_new(&self, region: String) -> Vec<String>;
+    fn argv_new(&self, region: String) -> Vec<[String; 2]>;
     fn insert(&self, holder: &Arc<Mutex<HashMap<u64, Ecs>>>, data: Vec<u8>);
     //fn reflect(&self) -> DT;
 }
 
 impl META for Meta {
-    fn argv_new(&self, region: String) -> Vec<String> {
+    fn argv_new(&self, region: String) -> Vec<[String; 2]> {
         vec![
-            "-region".to_owned(),
-            region.to_owned(),
-            "-domain".to_owned(),
-            "ecs.aliyuncs.com".to_owned(),
-            "-apiName".to_owned(),
-            "DescribeInstances".to_owned(),
-            "-apiVersion".to_owned(),
-            "2014-05-26".to_owned(),
-            "Action".to_owned(),
-            "DescribeInstances".to_owned(),
-            "PageSize".to_owned(),
-            "100".to_owned(),
+            ["Domain".to_owned(), "ecs.aliyuncs.com".to_owned()],
+            ["Version".to_owned(), "2014-05-26".to_owned()],
+            ["Action".to_owned(), "DescribeInstances".to_owned()],
+            ["PageSize".to_owned(), "100".to_owned()],
+            ["RegionId".to_owned(), region],
         ]
     }
 
@@ -176,9 +169,9 @@ impl META for Meta {
  * @param start_time: unix time_stamp
  */
 fn get_meta <T: META> (holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String, t: T) {
-    let mut extra = t.argv_new(region.clone());
+    let extra = t.argv_new(region.clone());
 
-    if let Ok(ret) = cmd_exec(extra.clone()) {
+    if let Ok(ret) = http_req(extra.clone()) {
         let v: Value = serde_json::from_slice(&ret).unwrap_or(Value::Null);
         if Value::Null == v {
             return;
@@ -201,12 +194,10 @@ fn get_meta <T: META> (holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String, t:
         t.insert(&holder, ret);
 
         if 1 < pages {
-            extra.push("PageNumber".to_owned());
-
-            let worker = |tx: mpsc::Sender<Vec<u8>>, page: u64, mut extra_: Vec<String>| {
+            let worker = |tx: mpsc::Sender<Vec<u8>>, page: u64, mut extra_: Vec<[String; 2]>| {
                 thread::spawn(move || {
-                    extra_.push(page.to_string());
-                    if let Ok(ret) = cmd_exec(extra_) {
+                    extra_.push(["PageNumber".to_owned(), page.to_string()]);
+                    if let Ok(ret) = http_req(extra_) {
                         tx.send(ret).unwrap_or_else(|e|{ err!(e); });
                     }
                 });
@@ -236,90 +227,77 @@ fn get_meta <T: META> (holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String, t:
     }
 }
 
-fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>, region: String) {
+fn get_data(holder: Arc<Mutex<HashMap<u64, Ecs>>>) {
     let mut tids = vec![];
 
     let h = Arc::clone(&holder);
-    let r = region.clone();
     tids.push(thread::spawn(|| {
-            cpu::Data.get(h, r);
+            cpu::Data.get(h);
         }));
 
     let h = Arc::clone(&holder);
-    let r = region.clone();
     tids.push(thread::spawn(|| {
-            mem::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            disk::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            load5m::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            load15m::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            tcp::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            disk::rd::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            disk::wr::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            disk::rd_tps::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            disk::wr_tps::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            netif::rd::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            netif::wr::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            netif::rd_tps::Data.get(h, r);
+            mem::Data.get(h);
         }));
 
     let h = Arc::clone(&holder);
     tids.push(thread::spawn(move || {
-            netif::wr_tps::Data.get(h, region);
+            disk::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            load5m::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            load15m::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            tcp::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            disk::rd::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            disk::wr::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            disk::rd_tps::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            disk::wr_tps::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            netif::rd::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            netif::wr::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            netif::rd_tps::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            netif::wr_tps::Data.get(h);
         }));
 
     for tid in tids {
@@ -383,10 +361,5 @@ pub fn sv(regions: Vec<String>) {
         tid.join().unwrap();
     }
 
-    /*
-     * Aliyun BUG ?
-     * 不传 Dimensions，则 region 字段不起过滤作用，
-     * 任一有效值皆会返回所有区域的数据
-     */
-    get_data(holder, "cn-beijing".to_owned());
+    get_data(holder);
 }

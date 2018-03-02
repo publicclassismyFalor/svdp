@@ -14,19 +14,30 @@ use std::sync::{Arc, RwLock};
 use std::collections::{HashMap, VecDeque};
 
 use std::fs::File;
-use std::io::{Read, Error};
-use std::process::Command;
+use std::io::Read;
 
 use std::sync::mpsc;
 
-use ::regex::Regex;
-use ::serde_json;
+use regex::Regex;
+
+use serde_json;
 use serde_json::Value;
+
+use rand::Rng;
+
+use reqwest;
+
+use ring::{digest, hmac};
+use data_encoding::BASE64;
+use url::form_urlencoded::byte_serialize;
 
 use postgres::{Connection, TlsMode};
 
-pub const CMD: &str = "/tmp/aliyun_cmdb";
-pub const ARGV: &[&str] = &["-userId", "LTAIHYRtkSXC1uTl", "-userKey", "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV"];
+use ::time::{strftime, now_utc};
+
+pub const ACCESSID: &str = "LTAIHYRtkSXC1uTl";
+//pub const ACCESSKEY: &str = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
+pub const SIGKEY: &str = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV&";  // 即 ACCESSKEY 之后追加一个 '&'，用于 URL 签名 
 
 pub static mut BASESTAMP: u64 = 0;
 pub const INTERVAL: u64 = 5 * 60 * 1000;
@@ -38,6 +49,10 @@ type Rds = Arc<RwLock<VecDeque<(i32, HashMap<String, rds::Inner>)>>>;
 type MongoDB = Arc<RwLock<VecDeque<(i32, HashMap<String, mongodb::Inner>)>>>;
 type Redis = Arc<RwLock<VecDeque<(i32, HashMap<String, redis::Inner>)>>>;
 type Memcache = Arc<RwLock<VecDeque<(i32, HashMap<String, memcache::Inner>)>>>;
+
+lazy_static! {
+    static ref SV_CLIENT: reqwest::Client = reqwest::Client::new();
+}
 
 lazy_static! {
     pub static ref CACHE_ECS: Ecs = Arc::new(RwLock::new(VecDeque::new()));

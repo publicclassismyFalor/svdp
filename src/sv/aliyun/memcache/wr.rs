@@ -10,9 +10,9 @@ pub struct Data;
 impl DATA for Data {
     type Holder = Arc<Mutex<HashMap<u64, Memcache>>>;
 
-    fn argv_new(&self, region: String) -> Vec<String> {
-        let mut argv = base::argv_new(region);
-        argv.push(ME.to_owned());
+    fn argv_new(&self) -> Vec<[String; 2]> {
+        let mut argv = base::argv_new();
+        argv.push(["Metric".to_owned(), ME.to_owned()]);
 
         argv
     }

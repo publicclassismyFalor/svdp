@@ -7,14 +7,11 @@ use std::sync::{Arc, Mutex};
 use super::{Slb, Inner, MSPERIOD, ACSITEM};
 use ::sv::aliyun;
 
-pub fn argv_new(region: String) -> Vec<String> {
-    let mut argv = aliyun::argv_new_base(region);
+pub fn argv_new() -> Vec<[String; 2]> {
+    let mut argv = aliyun::argv_new_base();
 
-    argv.push("Project".to_owned());
-    argv.push(ACSITEM.to_owned());
-    argv.push("Period".to_owned());
-    argv.push((MSPERIOD / 1000).to_string());
-    argv.push("Metric".to_owned());
+    argv.push(["Project".to_owned(), ACSITEM.to_owned()]);
+    argv.push(["Period".to_owned(), (MSPERIOD / 1000).to_string()]);
 
     argv
 }
