@@ -18,6 +18,7 @@ extern crate postgres;
 extern crate threadpool;
 
 extern crate iron;
+extern crate reqwest;
 
 #[macro_use] mod zmacro;
 mod sv;

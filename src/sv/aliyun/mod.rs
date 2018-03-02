@@ -14,7 +14,7 @@ use std::sync::{Arc, RwLock};
 use std::collections::{HashMap, VecDeque};
 
 use std::fs::File;
-use std::io::{Read, Error};
+use std::io::Read;
 
 use std::sync::mpsc;
 
@@ -22,6 +22,7 @@ use ::regex::Regex;
 use ::serde_json;
 use serde_json::Value;
 use ::rand::Rng;
+use ::reqwest;
 
 use postgres::{Connection, TlsMode};
 
@@ -40,6 +41,10 @@ type Rds = Arc<RwLock<VecDeque<(i32, HashMap<String, rds::Inner>)>>>;
 type MongoDB = Arc<RwLock<VecDeque<(i32, HashMap<String, mongodb::Inner>)>>>;
 type Redis = Arc<RwLock<VecDeque<(i32, HashMap<String, redis::Inner>)>>>;
 type Memcache = Arc<RwLock<VecDeque<(i32, HashMap<String, memcache::Inner>)>>>;
+
+lazy_static! {
+    static ref SV_CLIENT: reqwest::Client = reqwest::Client::new();
+}
 
 lazy_static! {
     pub static ref CACHE_ECS: Ecs = Arc::new(RwLock::new(VecDeque::new()));

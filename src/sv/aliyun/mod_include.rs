@@ -103,11 +103,17 @@ fn get_region() -> Option<Vec<String>> {
     Some(res)
 }
 
-// TODO
-fn http_req(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, Error> {
+fn http_req(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
     argv.push(["AccessKeyId".to_owned(), ACCESSID.to_owned()]);
 
-    Ok(vec![])
+// TODO
+
+    let mut ret = vec![];
+    if let Err(e) = SV_CLIENT.get("...FIXME...").send()?.read(&mut ret) {
+        err!(e);
+    }
+
+    Ok(ret)
 }
 
 /* read from /proc/meminfo */
