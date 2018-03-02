@@ -48,6 +48,21 @@ lazy_static! {
     pub static ref CACHE_MEMCACHE: Memcache = Arc::new(RwLock::new(VecDeque::new()));
 }
 
+macro_rules! cacheload {
+    ($rows: expr, $mytype: ty, $mycache: path) => {
+        for row in $rows {
+            let ts: i32 = row.get(0);
+            let sv: String = row.get(1);
+
+            if let Ok(svb) = serde_json::from_str::<HashMap<String, $mytype>>(&sv) {
+                $mycache.write().unwrap().push_front((ts, svb));
+            } else {
+                err!(sv);
+            }
+        }
+    }
+}
+
 pub fn go() {
     let ts_now = || 1000 * std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
 
@@ -91,55 +106,26 @@ pub fn go() {
                 if rows.is_empty() {
                     break;
                 } else {
-                    for row in &rows {
-                        let ts: i32 = row.get(0);
-                        let sv: String = row.get(1);
-
-                        match j {
-                            0 => {
-                                if let Ok(svb) = serde_json::from_str::<HashMap<String, ecs::Inner>>(&sv) {
-                                    CACHE_ECS.write().unwrap().push_front((ts, svb));
-                                } else {
-                                    err!(sv);
-                                }
-                            },
-                            1 => {
-                                if let Ok(svb) = serde_json::from_str::<HashMap<String, slb::Inner>>(&sv) {
-                                    CACHE_SLB.write().unwrap().push_front((ts, svb));
-                                } else {
-                                    err!(sv);
-                                }
-                            },
-                            2 => {
-                                if let Ok(svb) = serde_json::from_str::<HashMap<String, rds::Inner>>(&sv) {
-                                    CACHE_RDS.write().unwrap().push_front((ts, svb));
-                                } else {
-                                    err!(sv);
-                                }
-                            },
-                            3 => {
-                                if let Ok(svb) = serde_json::from_str::<HashMap<String, mongodb::Inner>>(&sv) {
-                                    CACHE_MONGODB.write().unwrap().push_front((ts, svb));
-                                } else {
-                                    err!(sv);
-                                }
-                            },
-                            4 => {
-                                if let Ok(svb) = serde_json::from_str::<HashMap<String, redis::Inner>>(&sv) {
-                                    CACHE_REDIS.write().unwrap().push_front((ts, svb));
-                                } else {
-                                    err!(sv);
-                                }
-                            },
-                            5 => {
-                                if let Ok(svb) = serde_json::from_str::<HashMap<String, memcache::Inner>>(&sv) {
-                                    CACHE_MEMCACHE.write().unwrap().push_front((ts, svb));
-                                } else {
-                                    err!(sv);
-                                }
-                            },
-                            _ => unreachable!()
-                        }
+                    match j {
+                        0 => {
+                            cacheload!(&rows, ecs::Inner, CACHE_ECS);
+                        },
+                        1 => {
+                            cacheload!(&rows, slb::Inner, CACHE_SLB);
+                        },
+                        2 => {
+                            cacheload!(&rows, rds::Inner, CACHE_RDS);
+                        },
+                        3 => {
+                            cacheload!(&rows, mongodb::Inner, CACHE_MONGODB);
+                        },
+                        4 => {
+                            cacheload!(&rows, redis::Inner, CACHE_REDIS);
+                        },
+                        5 => {
+                            cacheload!(&rows, memcache::Inner, CACHE_MEMCACHE);
+                        },
+                        _ => unreachable!()
                     }
                 }
             }
