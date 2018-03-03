@@ -1,15 +1,15 @@
 pub trait DATA {
     type Holder;
 
-    fn argv_new(&self, region: String) -> Vec<String>;
+    fn argv_new(&self) -> Vec<[String; 2]>;
 
-    fn get(&self, holder: Self::Holder, region: String) {
-        let mut extra = self.argv_new(region);
+    fn get(&self, holder: Self::Holder) {
+        let mut argv = self.argv_new();
 
         let (tx, rx) = mpsc::channel();
 
         thread::spawn(move || {
-            if let Ok(ret) = cmd_exec(extra.clone()) {
+            if let Ok(ret) = http_req(argv.clone()) {
                 let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
                 if Value::Null == v {
                     return;
@@ -18,10 +18,9 @@ pub trait DATA {
                 tx.send(ret).unwrap();
 
                 if let Value::String(ref cursor) = v["Cursor"] {
-                    extra.push("Cursor".to_owned());
-                    extra.push((*cursor).clone());
+                    argv.push(["Cursor".to_owned(), (*cursor).clone()]);
 
-                    while let Ok(ret) = cmd_exec(extra.clone()) {
+                    while let Ok(ret) = http_req(argv.clone()) {
                         let v = serde_json::from_slice(&ret).unwrap_or(Value::Null);
                         if Value::Null == v {
                             return;
@@ -30,8 +29,8 @@ pub trait DATA {
                         tx.send(ret).unwrap();
 
                         if let Value::String(ref cursor) = v["Cursor"] {
-                            extra.pop();
-                            extra.push((*cursor).clone());
+                            argv.pop();
+                            argv.push(["Cursor".to_owned(), (*cursor).clone()]);
                         } else {
                             break;
                         }
@@ -51,30 +50,17 @@ pub trait DATA {
 
 
 
-pub fn argv_new_base(region: String) -> Vec<String> {
+pub fn argv_new_base() -> Vec<[String; 2]> {
     let mut argv = vec![
-        "-region".to_owned(),
-        region,
-        "-domain".to_owned(),
-        "metrics.aliyuncs.com".to_owned(),
-        "-apiName".to_owned(),
-        "QueryMetricList".to_owned(),
-        "-apiVersion".to_owned(),
-        "2017-03-01".to_owned(),
-        "Action".to_owned(),
-        "QueryMetricList".to_owned(),
-        "Length".to_owned(),
-        "1000".to_owned(),
+        ["Domain".to_owned(), "metrics.aliyuncs.com".to_owned()],
+        ["Version".to_owned(), "2017-03-01".to_owned()],
+        ["Action".to_owned(), "QueryMetricList".to_owned()],
+        ["Length".to_owned(), "1000".to_owned()],
     ];
 
-    argv.push("StartTime".to_owned());
     unsafe {
-        argv.push(BASESTAMP.to_string());
-    }
-
-    argv.push("EndTime".to_owned());
-    unsafe {
-        argv.push((BASESTAMP + INTERVAL).to_string());
+        argv.push(["StartTime".to_owned(), BASESTAMP.to_string()]);
+        argv.push(["EndTime".to_owned(), (BASESTAMP + INTERVAL).to_string()]);
     }
 
     argv
@@ -82,19 +68,14 @@ pub fn argv_new_base(region: String) -> Vec<String> {
 
 fn get_region() -> Option<Vec<String>> {
     let mut res: Vec<String> = Vec::new();
-    let extra = vec![
-        "-domain".to_owned(),
-        "ecs.aliyuncs.com".to_owned(),
-        "-apiName".to_owned(),
-        "DescribeRegions".to_owned(),
-        "-apiVersion".to_owned(),
-        "2014-05-26".to_owned(),
-        "Action".to_owned(),
-        "DescribeRegions".to_owned(),
+    let argv = vec![
+        ["Domain".to_owned(), "ecs.aliyuncs.com".to_owned()],
+        ["Version".to_owned(), "2014-05-26".to_owned()],
+        ["Action".to_owned(), "DescribeRegions".to_owned()],
     ];
 
-    if let Ok(stdout) = cmd_exec(extra) {
-        let v: Value = serde_json::from_slice(&stdout).unwrap_or(Value::Null);
+    if let Ok(ret) = http_req(argv) {
+        let v: Value = serde_json::from_slice(&ret).unwrap_or(Value::Null);
         if Value::Null == v {
             return None;
         }
@@ -117,22 +98,59 @@ fn get_region() -> Option<Vec<String>> {
     Some(res)
 }
 
-fn cmd_exec(mut extra: Vec<String>) -> Result<Vec<u8>, Error> {
-    let mut argv: Vec<String> = Vec::new();
+fn http_req(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
+    argv.push(["AccessKeyId".to_owned(), ACCESSID.to_owned()]);
+    argv.push(["SignatureMethod".to_owned(), "HMAC-SHA1".to_owned()]);
+    argv.push(["SignatureVersion".to_owned(), "1.0".to_owned()]);
+    argv.push(["SignatureNonce".to_owned(), ::rand::thread_rng().gen::<i32>().to_string()]);
+    argv.push(["Format".to_owned(), "JSON".to_owned()]);
+    argv.push(["Timestamp".to_owned(), strftime("%Y-%m-%dT%H:%M:%SZ", &now_utc()).unwrap()]);
+    argv[1..].sort();
 
-    for x in ARGV.iter() {
-        argv.push((**x).to_string());
+    let mut mid_str = String::new();
+    let last_id = argv.len() - 1;
+
+    for i in 1..last_id {
+        mid_str.push_str(&byte_serialize(argv[i][0].as_bytes()).collect::<String>());
+        mid_str.push_str("=");
+        mid_str.push_str(&byte_serialize(argv[i][1].as_bytes()).collect::<String>());
+        mid_str.push_str("&");
+    }
+    mid_str.push_str(&byte_serialize(argv[last_id][0].as_bytes()).collect::<String>());
+    mid_str.push_str("=");
+    mid_str.push_str(&byte_serialize(argv[last_id][1].as_bytes()).collect::<String>());
+
+    let str_to_sig = format!("GET&%2F&{}", byte_serialize(mid_str.as_bytes()).collect::<String>());
+
+    let mid_str = mid_str.replace("+", "%20").replace("*", "%2A").replace("%7E", "~");
+    let str_to_sig = str_to_sig.replace("+", "%20").replace("*", "%2A").replace("%7E", "~");
+
+    let sigkey = hmac::SigningKey::new(&digest::SHA1, SIGKEY.as_bytes());
+    let sig = hmac::sign(&sigkey, str_to_sig.as_bytes());
+
+    let final_url_sig = byte_serialize(BASE64.encode(sig.as_ref()).as_bytes()).collect::<String>();
+    let final_url_sig = final_url_sig.replace("+", "%20").replace("*", "%2A").replace("%7E", "~");
+
+    let domain = &argv[0][1];
+    let mut requrl = format!("http://{}?", domain);
+    requrl.push_str(&mid_str);
+    requrl.push_str("&");
+    requrl.push_str("Signature");
+    requrl.push_str("=");
+    requrl.push_str(&final_url_sig);
+
+    let mut resp = SV_CLIENT.get(&requrl).send()?;
+    let mut ret = vec![];
+    match resp.status() {
+        reqwest::StatusCode::Ok => {
+            if let Err(e) = resp.read_to_end(&mut ret) {
+                err!(e);
+            }
+        },
+        s => err!(s)
     }
 
-    argv.append(&mut extra);
-
-    let output = Command::new(CMD).args(argv).output() ?;
-
-    if output.status.success() {
-        return Ok(output.stdout);
-    } else {
-        return Err(Error::from_raw_os_error(output.status.code().unwrap_or(1)));
-    }
+    Ok(ret)
 }
 
 /* read from /proc/meminfo */

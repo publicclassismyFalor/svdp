@@ -83,48 +83,42 @@ impl Inner {
     }
 }
 
-fn get_data(holder: Arc<Mutex<HashMap<u64, MongoDB>>>, region: String) {
+fn get_data(holder: Arc<Mutex<HashMap<u64, MongoDB>>>) {
     let mut tids = vec![];
 
     let h = Arc::clone(&holder);
-    let r = region.clone();
     tids.push(thread::spawn(move || {
-            cpu::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            mem::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            disk::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            disk_tps::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            conn::Data.get(h, r);
-        }));
-
-    let h = Arc::clone(&holder);
-    let r = region.clone();
-    tids.push(thread::spawn(move || {
-            rd::Data.get(h, r);
+            cpu::Data.get(h);
         }));
 
     let h = Arc::clone(&holder);
     tids.push(thread::spawn(move || {
-            wr::Data.get(h, region);
+            mem::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            disk::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            disk_tps::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            conn::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            rd::Data.get(h);
+        }));
+
+    let h = Arc::clone(&holder);
+    tids.push(thread::spawn(move || {
+            wr::Data.get(h);
         }));
 
     for tid in tids {
@@ -176,10 +170,5 @@ pub fn sv(_regions: Vec<String>) {
 
     let holder = Arc::new(Mutex::new(holder));
 
-    /*
-     * Aliyun BUG ?
-     * 不传 Dimensions，则 region 字段不起过滤作用，
-     * 任一有效值皆会返回所有区域的数据
-     */
-    get_data(holder, "cn-beijing".to_owned());
+    get_data(holder);
 }
