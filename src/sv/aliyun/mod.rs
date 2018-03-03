@@ -51,7 +51,9 @@ type Redis = Arc<RwLock<VecDeque<(i32, HashMap<String, redis::Inner>)>>>;
 type Memcache = Arc<RwLock<VecDeque<(i32, HashMap<String, memcache::Inner>)>>>;
 
 lazy_static! {
-    static ref SV_CLIENT: reqwest::Client = reqwest::Client::new();
+    static ref SV_CLIENT: reqwest::Client = reqwest::ClientBuilder::new()
+                                            .timeout(Duration::from_secs(30))
+                                            .build().unwrap();
 }
 
 lazy_static! {

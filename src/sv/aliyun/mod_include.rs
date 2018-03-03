@@ -98,34 +98,27 @@ fn get_region() -> Option<Vec<String>> {
     Some(res)
 }
 
-fn http_req(argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
-    let domain = &argv[0][1];
-
-    let mut params = vec![];
-    for i in 1..argv.len() {
-        params.push(argv[i].clone());
-    }
-
-    params.push(["AccessKeyId".to_owned(), ACCESSID.to_owned()]);
-    params.push(["SignatureMethod".to_owned(), "HMAC-SHA1".to_owned()]);
-    params.push(["SignatureVersion".to_owned(), "1.0".to_owned()]);
-    params.push(["SignatureNonce".to_owned(), ::rand::thread_rng().gen::<i32>().to_string()]);
-    params.push(["Format".to_owned(), "JSON".to_owned()]);
-    params.push(["Timestamp".to_owned(), strftime("%Y-%m-%dT%H:%M:%SZ", &now_utc()).unwrap()]);
-    params.sort();
+fn http_req(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
+    argv.push(["AccessKeyId".to_owned(), ACCESSID.to_owned()]);
+    argv.push(["SignatureMethod".to_owned(), "HMAC-SHA1".to_owned()]);
+    argv.push(["SignatureVersion".to_owned(), "1.0".to_owned()]);
+    argv.push(["SignatureNonce".to_owned(), ::rand::thread_rng().gen::<i32>().to_string()]);
+    argv.push(["Format".to_owned(), "JSON".to_owned()]);
+    argv.push(["Timestamp".to_owned(), strftime("%Y-%m-%dT%H:%M:%SZ", &now_utc()).unwrap()]);
+    argv[1..].sort();
 
     let mut mid_str = String::new();
-    let last_id = params.len() - 1;
+    let last_id = argv.len() - 1;
 
-    for i in 0..last_id {
-        mid_str.push_str(&byte_serialize(params[i][0].as_bytes()).collect::<String>());
+    for i in 1..last_id {
+        mid_str.push_str(&byte_serialize(argv[i][0].as_bytes()).collect::<String>());
         mid_str.push_str("=");
-        mid_str.push_str(&byte_serialize(params[i][1].as_bytes()).collect::<String>());
+        mid_str.push_str(&byte_serialize(argv[i][1].as_bytes()).collect::<String>());
         mid_str.push_str("&");
     }
-    mid_str.push_str(&byte_serialize(params[last_id][0].as_bytes()).collect::<String>());
+    mid_str.push_str(&byte_serialize(argv[last_id][0].as_bytes()).collect::<String>());
     mid_str.push_str("=");
-    mid_str.push_str(&byte_serialize(params[last_id][1].as_bytes()).collect::<String>());
+    mid_str.push_str(&byte_serialize(argv[last_id][1].as_bytes()).collect::<String>());
 
     let str_to_sig = format!("GET&%2F&{}", byte_serialize(mid_str.as_bytes()).collect::<String>());
 
@@ -138,6 +131,7 @@ fn http_req(argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
     let final_url_sig = byte_serialize(BASE64.encode(sig.as_ref()).as_bytes()).collect::<String>();
     let final_url_sig = final_url_sig.replace("+", "%20").replace("*", "%2A").replace("%7E", "~");
 
+    let domain = &argv[0][1];
     let mut requrl = format!("http://{}?", domain);
     requrl.push_str(&mid_str);
     requrl.push_str("&");
