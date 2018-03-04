@@ -355,28 +355,35 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), (String, i32)> {
         }
     }
 
-    let method = req.method.as_str();
-    if method.starts_with("sv_") {
-        match method {
-            "sv_ecs" => go!(req, aliyun::CACHE_ECS, aliyun::ecs::Inner::get_cb),
-            "sv_slb" => go!(req, aliyun::CACHE_SLB, aliyun::slb::Inner::get_cb),
-            "sv_rds" => go!(req, aliyun::CACHE_RDS, aliyun::rds::Inner::get_cb),
-            "sv_mongodb" => go!(req, aliyun::CACHE_MONGODB, aliyun::mongodb::Inner::get_cb),
-            "sv_redis" => go!(req, aliyun::CACHE_REDIS, aliyun::redis::Inner::get_cb),
-            "sv_memcache" => go!(req, aliyun::CACHE_MEMCACHE, aliyun::memcache::Inner::get_cb),
+    let mb = req.method.as_bytes();
+    if 3 < mb.len() {
+        match &mb[0..3] {
+            b"sv_" => {
+                match &mb[3..] {
+                    b"ecs" => go!(req, aliyun::CACHE_ECS, aliyun::ecs::Inner::get_cb),
+                    b"slb" => go!(req, aliyun::CACHE_SLB, aliyun::slb::Inner::get_cb),
+                    b"rds" => go!(req, aliyun::CACHE_RDS, aliyun::rds::Inner::get_cb),
+                    b"mongodb" => go!(req, aliyun::CACHE_MONGODB, aliyun::mongodb::Inner::get_cb),
+                    b"redis" => go!(req, aliyun::CACHE_REDIS, aliyun::redis::Inner::get_cb),
+                    b"memcache" => go!(req, aliyun::CACHE_MEMCACHE, aliyun::memcache::Inner::get_cb),
+                    _ => {
+                        err!(req.method.as_str());
+                        return Err(("method invalid".to_owned(), req.id));
+                    }
+                };
+            },
+            b"dp_" => {
+                match &mb[3..] {
+                    _ => return Ok(("".to_owned(), 0))
+                };
+            },
             _ => {
-                err!(method);
+                err!(req.method.as_str());
                 return Err(("method invalid".to_owned(), req.id));
             }
-        };
-    } else if method.starts_with("dp_") {
-        match method {
-            _ => {
-                return Ok(("".to_owned(), 0));
-            }
-        };
+        }
     } else {
-        err!(method);
+        err!(req.method.as_str());
         return Err(("method invalid".to_owned(), req.id));
     }
 }
