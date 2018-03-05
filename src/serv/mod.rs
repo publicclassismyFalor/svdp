@@ -12,8 +12,8 @@ use threadpool::ThreadPool;
 
 use ::{CONF, DBPOOL};
 use ::serde_json;
+
 use ::sv::aliyun;
-use super::CACHEINTERVAL;
 
 
 /// REQ example:
@@ -155,7 +155,7 @@ macro_rules! cache_worker {
 
             let (has_itv, itv) = match $req.params.interval {
                 Some(itv) => {
-                    if CACHEINTERVAL as i32 == itv {
+                    if aliyun::CACHEINTERVAL as i32 == itv {
                         (false, 0)
                     } else {
                         (true, itv)
@@ -303,12 +303,12 @@ macro_rules! go {
                     if dq.0 > $req.params.ts_range[1]{
                         let tuple = db_worker!($req);
                         return res!(tuple, reqid);
-                    } else if dq.0 < ($req.params.ts_range[0] + super::CACHEINTERVAL as i32) {
+                    } else if dq.0 < ($req.params.ts_range[0] + aliyun::CACHEINTERVAL as i32) {
                         let tuple = cache_worker!($req, $get_cb, $deque);
                         return res!(tuple, reqid);
                     } else {
                         let mut req_db = $req.clone();
-                        req_db.params.ts_range[1] = dq.0 - super::CACHEINTERVAL as i32;
+                        req_db.params.ts_range[1] = dq.0 - aliyun::CACHEINTERVAL as i32;
                         let mut db_res = db_worker!(req_db);
 
                         let mut cache_res = cache_worker!($req, $get_cb, $deque);
@@ -344,7 +344,7 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), (String, i32)> {
 
     match req.params.interval {
         Some(itv) => {
-            let cache_itv = CACHEINTERVAL as i32;
+            let cache_itv = aliyun::CACHEINTERVAL as i32;
             if cache_itv > itv {
                 req.params.interval = Some(cache_itv);  // 低于 300s，自动提升为 300s
             } else {
@@ -352,7 +352,7 @@ fn worker(body: &Vec<u8>) -> Result<(String, i32), (String, i32)> {
             }
         },
         None => {
-            req.params.interval = Some(CACHEINTERVAL as i32);  // 不指定，默认 300s
+            req.params.interval = Some(aliyun::CACHEINTERVAL as i32);  // 不指定，默认 300s
         }
     }
 

@@ -177,13 +177,3 @@ pub fn mem_insufficient() -> bool {
         false
     }
 }
-
-fn start_serv() {
-    if None != ::CONF.sv_http_addr {
-        thread::spawn(|| serv::http_serv());
-    }
-
-    if None != ::CONF.sv_tcp_addr {
-        thread::spawn(|| serv::tcp_serv());
-    }
-}

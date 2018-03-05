@@ -1,5 +1,3 @@
-pub mod serv;
-
 pub mod ecs;
 pub mod slb;
 pub mod rds;
@@ -150,9 +148,6 @@ pub fn go() {
             }
         }
     }
-
-    /* 启动网络服务 */
-    start_serv();
 
     loop {
         let regions;
