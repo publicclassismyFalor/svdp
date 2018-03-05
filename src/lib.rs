@@ -24,11 +24,13 @@ extern crate iron;
 extern crate reqwest;
 
 #[macro_use] mod zmacro;
+mod serv;
 mod sv;
 mod dp;
 
 use std::fs::File;
 use std::io::Read;
+use std::thread;
 
 use r2d2::Pool;
 use r2d2_postgres::{TlsMode, PostgresConnectionManager};
@@ -87,6 +89,14 @@ fn conf_parse() -> Config {
 }
 
 pub fn run() {
+    if None != ::CONF.sv_http_addr {
+        thread::spawn(|| serv::http_serv());
+    }
+
+    if None != ::CONF.sv_tcp_addr {
+        thread::spawn(|| serv::tcp_serv());
+    }
+
     sv::go();
     dp::go();
 }
