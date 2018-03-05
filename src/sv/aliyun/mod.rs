@@ -83,7 +83,9 @@ macro_rules! cacheload {
 pub fn go() {
     let ts_now = || 1000 * std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
 
-    let pgconn = Connection::connect(::CONF.pg_login_url.as_str(), TlsMode::None).unwrap();
+    let pgconn = Connection::connect(::CONF.pg_login_url.as_str(), TlsMode::None)
+        .unwrap_or_else(|e|{err!(e); std::process::exit(1);});
+
     pgconn.execute("CREATE TABLE IF NOT EXISTS sv_meta (last_basestamp int)", &[]).unwrap();
 
     let rows = pgconn.query("SELECT last_basestamp FROM sv_meta", &[]).unwrap();
