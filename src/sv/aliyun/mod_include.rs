@@ -141,11 +141,20 @@ fn http_req(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
 
     let mut resp = SV_CLIENT.get(&requrl).send()?;
     let mut ret = vec![];
-    match resp.status() {
-        reqwest::StatusCode::Ok => {
-            resp.read_to_end(&mut ret).unwrap_or_else(|e|{err!(e); 0});
-        },
-        s => err!(s)
+    for _ in 0..3 {
+        match resp.status() {
+            reqwest::StatusCode::Ok => {
+                resp.read_to_end(&mut ret).unwrap_or_else(|e|{err!(e); 0});
+                break;
+            },
+            s => {
+                err!(s);
+                err!(requrl);
+            }
+        }
+
+        /* aliyun has throttling limit! */
+        thread::sleep(Duration::from_secs(2));
     }
 
     Ok(ret)
