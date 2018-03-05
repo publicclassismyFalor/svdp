@@ -66,7 +66,7 @@ zPgDataPath=${zPgPath}/data
 
 # PG: 留空表示仅接受本地 UNIX 域套接字连接
 sed -i '/#*listen_addresses =/d' ${zPgDataPath}/postgresql.conf
-echo "listen_addresses = ''" >> ${zPgDataPath}/postgresql.conf
+echo "listen_addresses = 'localhost'" >> ${zPgDataPath}/postgresql.conf
 
 # PG: 以源码根路径作为 UNIX 域套接字存放路径
 sed -i '/#*unix_socket_directories =/d' ${zPgDataPath}/postgresql.conf
@@ -110,8 +110,9 @@ ${zPgBinPath}/createdb -O `whoami` svdp
 # (echo -1000 > /proc/$pid/oom_score_adj; echo -17 > /proc/$pid/oom_adj) 2>${zPgDataPath}/log
 
 # 借助 nohup 进入守护进程模式
-killall svdp
 cd ${zProjPath}/conf
+killall svdp
+sed -i "s/__USER__/`whoami`/g" major.toml
 # !!! 普通用户使用 1024 以下端口，需要设置 CAP !!!
 # setcap cap_net_bind_service=+eip ${zProjPath}/target/release/svdp
 # 清除 CAP：setcap -r ${zProjPath}/target/release/svdp

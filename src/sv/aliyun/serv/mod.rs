@@ -314,13 +314,14 @@ macro_rules! go {
                         let mut cache_res = cache_worker!($req, $get_cb, $deque);
 
                         let res;
-                        if 0 < db_res.0.len() {
-                            res = serde_json::to_string(&(
-                                    db_res.0.append(&mut cache_res.0),
-                                    db_res.1.append(&mut cache_res.1)
-                                    )).unwrap();
-                        } else {
+                        if 0 == db_res.0.len() {
                             res = serde_json::to_string(&cache_res).unwrap();
+                        } else if 0 == cache_res.0.len() {
+                            res = serde_json::to_string(&db_res).unwrap();
+                        } else {
+                            db_res.0.append(&mut cache_res.0);
+                            db_res.1.append(&mut cache_res.1);
+                            res = serde_json::to_string(&(db_res)).unwrap();
                         }
 
                         return Ok((res, reqid));
