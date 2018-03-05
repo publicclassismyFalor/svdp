@@ -110,9 +110,9 @@ ${zPgBinPath}/createdb -O `whoami` svdp
 # (echo -1000 > /proc/$pid/oom_score_adj; echo -17 > /proc/$pid/oom_adj) 2>${zPgDataPath}/log
 
 # 借助 nohup 进入守护进程模式
-killall svdp
-sed -i "s/__USER__/`whoami`/g" ../conf/major.toml
 cd ${zProjPath}/conf
+killall svdp
+sed -i "s/__USER__/`whoami`/g" major.toml
 # !!! 普通用户使用 1024 以下端口，需要设置 CAP !!!
 # setcap cap_net_bind_service=+eip ${zProjPath}/target/release/svdp
 # 清除 CAP：setcap -r ${zProjPath}/target/release/svdp
