@@ -82,7 +82,7 @@ pub fn go() {
     let ts_now = || 1000 * std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
 
     let pgconn = Connection::connect(::CONF.pg_login_url.as_str(), TlsMode::None)
-        .unwrap_or_else(|e|{err!(e); std::process::exit(1);});
+        .unwrap_or_else(|e| errexit!(e) );
 
     pgconn.execute("CREATE TABLE IF NOT EXISTS sv_meta (last_basestamp int)", &[]).unwrap();
 
