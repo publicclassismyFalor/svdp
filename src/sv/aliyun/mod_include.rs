@@ -102,7 +102,7 @@ fn http_req(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
     argv.push(["AccessKeyId".to_owned(), ACCESSID.to_owned()]);
     argv.push(["SignatureMethod".to_owned(), "HMAC-SHA1".to_owned()]);
     argv.push(["SignatureVersion".to_owned(), "1.0".to_owned()]);
-    argv.push(["SignatureNonce".to_owned(), (::time::precise_time_ns() + ::rand::thread_rng().gen::<u64>()).to_string()]);
+    argv.push(["SignatureNonce".to_owned(), ts_now().to_string() + &(::rand::thread_rng().gen::<i32>()).to_string() + &(::rand::thread_rng().gen::<i32>()).to_string()]);
     argv.push(["Format".to_owned(), "JSON".to_owned()]);
     argv.push(["Timestamp".to_owned(), strftime("%Y-%m-%dT%H:%M:%SZ", &now_utc()).unwrap()]);
     argv[1..].sort();
