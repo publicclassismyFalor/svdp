@@ -149,7 +149,16 @@ fn http_req(mut argv: Vec<[String; 2]>) -> Result<Vec<u8>, reqwest::Error> {
                     Err(e) => { ret.clear(); err!(e); continue; }
                 }
             },
-            e => { err!(e); err!(requrl); }
+            e => {
+                err!(e);
+                err!(requrl);
+
+                resp.read_to_end(&mut ret)
+                    .map(|_|{err!(String::from_utf8_lossy(&ret)); 0})
+                    .unwrap_or_default();
+
+                ret.clear();
+            }
         }
 
         /* aliyun has throttling limit! */
