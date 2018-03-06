@@ -1,7 +1,7 @@
 use ::sv::aliyun;
 
 /// REQ example:
-/// {"method":"sv_ecs","params":{"item":["disk","/dev/vda1","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600},"id":0}
+/// {"method":"sv_ecs","params":{"item":["disk","/dev/vda1","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600,"algo":["sum","avg","max","min"]},"id":0}
 ///
 /// RES example:
 /// {"result":[[1519530310,10],...,[1519530390,20]],"id":0}
@@ -20,6 +20,7 @@ struct Params {
     instance_id: String,
     ts_range: [i32; 2],
     interval: Option<i32>,
+    algo: Option<Vec<String>>,
 }
 
 macro_rules! cache_actor {
@@ -181,8 +182,42 @@ macro_rules! db_worker {
     }
 }
 macro_rules! res {
-    ($res: expr, $reqid: expr) => {
-        Ok((::serde_json::to_string(&$res).unwrap(), $reqid))
+    ($req: expr, $res: expr, $reqid: expr) => {
+        if None == $req.params.algo {
+            Ok((::serde_json::to_string(&$res).unwrap(), $reqid))
+        } else {
+            let mut algores = (vec![], vec![]);
+            for x in $req.params.algo.unwrap() {
+                match x.as_str() {
+                    "sum" => {
+                        algores.0.push("sum");
+                        algores.1.push($res.1.iter().sum::<i32>());
+                    },
+                    "avg" => {
+                        algores.0.push("avg");
+                        if 0 == $res.1.len() {
+                            algores.1.push(-1);
+                        } else {
+                            algores.1.push($res.1.iter().sum::<i32>() / $res.1.len() as i32);
+                        }
+                    },
+                    "min" => {
+                        algores.0.push("min");
+                        algores.1.push(*$res.1.iter().min().unwrap_or(&-1));
+                    },
+                    "max" => {
+                        algores.0.push("max");
+                        algores.1.push(*$res.1.iter().max().unwrap_or(&-1));
+                    },
+                    _ => {
+                        err!("60");
+                        return Err(("algo invalid".to_owned(), $req.id));
+                    }
+                }
+            }
+
+            Ok((::serde_json::to_string(&algores).unwrap(), $reqid))
+        }
     }
 }
 
@@ -193,15 +228,15 @@ macro_rules! go {
             match $deque.read().unwrap().get(0) {
                 None => {
                     let tuple = db_worker!($req);
-                    return res!(tuple, reqid);
+                    return res!($req, tuple, reqid);
                 },
                 Some(dq) => {
                     if dq.0 > $req.params.ts_range[1]{
                         let tuple = db_worker!($req);
-                        return res!(tuple, reqid);
+                        return res!($req, tuple, reqid);
                     } else if dq.0 < ($req.params.ts_range[0] + aliyun::CACHEINTERVAL as i32) {
                         let tuple = cache_worker!($req, $get_cb, $deque);
-                        return res!(tuple, reqid);
+                        return res!($req, tuple, reqid);
                     } else {
                         let mut req_db = $req.clone();
                         req_db.params.ts_range[1] = dq.0 - aliyun::CACHEINTERVAL as i32;
@@ -211,16 +246,16 @@ macro_rules! go {
 
                         let res;
                         if 0 == db_res.0.len() {
-                            res = ::serde_json::to_string(&cache_res).unwrap();
+                            res = cache_res;
                         } else if 0 == cache_res.0.len() {
-                            res = ::serde_json::to_string(&db_res).unwrap();
+                            res = db_res;
                         } else {
                             db_res.0.append(&mut cache_res.0);
                             db_res.1.append(&mut cache_res.1);
-                            res = ::serde_json::to_string(&(db_res)).unwrap();
+                            res = db_res;
                         }
 
-                        return Ok((res, reqid));
+                        return res!($req, res, reqid);
                     }
                 }
             }
