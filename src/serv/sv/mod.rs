@@ -37,7 +37,7 @@ macro_rules! cache_actor {
             if x.0 >= $req.params.ts_range[0] && 0 == x.0 % $condition {
                 if let Some(v) = x.1.get(&$req.params.instance_id) {
                     $final_k.push(x.0);
-                    $final_v.push($cb(&v, $dev, $item));
+                    $final_v.push($cb(&v, $dev, $item) as i64);
                 }
             }
         }
@@ -160,7 +160,7 @@ macro_rules! db_worker {
             let row = rows.get(0);
             if let Some(orig) = row.get(0) {
                 let orig: String = orig;
-                if let Ok(mut r) = ::serde_json::from_str::<Vec<(i32, Option<i32>)>>(&orig) {
+                if let Ok(mut r) = ::serde_json::from_str::<Vec<(i32, Option<i64>)>>(&orig) {
                     r.sort_by(|a, b|a.0.cmp(&b.0));
                     let len = r.len();
                     for i in 0..len {
@@ -191,14 +191,14 @@ macro_rules! res {
                 match x.as_str() {
                     "sum" => {
                         algores.0.push("sum");
-                        algores.1.push($res.1.iter().sum::<i32>());
+                        algores.1.push($res.1.iter().sum::<i64>());
                     },
                     "avg" => {
                         algores.0.push("avg");
                         if 0 == $res.1.len() {
                             algores.1.push(-1);
                         } else {
-                            algores.1.push($res.1.iter().sum::<i32>() / $res.1.len() as i32);
+                            algores.1.push($res.1.iter().sum::<i64>() / $res.1.len() as i64);
                         }
                     },
                     "min" => {
