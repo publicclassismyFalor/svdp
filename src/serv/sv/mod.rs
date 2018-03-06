@@ -1,7 +1,7 @@
 use ::sv::aliyun;
 
 /// REQ example:
-/// {"method":"sv_ecs","params":{"item":["disk","/dev/vda1","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600,"algo":["sum","avg","max","min"]},"id":0}
+/// {"method":"sv_ecs","params":{"item":["disk","/dev/vda1","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600,"algo":["avg","max","min"]},"id":0}
 ///
 /// RES example:
 /// {"result":[[1519530310,10],...,[1519530390,20]],"id":0}
@@ -189,10 +189,6 @@ macro_rules! res {
             let mut algores = (vec![], vec![]);
             for x in $req.params.algo.unwrap() {
                 match x.as_str() {
-                    "sum" => {
-                        algores.0.push("sum");
-                        algores.1.push($res.1.iter().sum::<i64>());
-                    },
                     "avg" => {
                         algores.0.push("avg");
                         if 0 == $res.1.len() {

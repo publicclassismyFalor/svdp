@@ -1,13 +1,13 @@
 # 接口规范 HTTP/1.1 POST
 #### 无子项目的请求:
-{"method":"sv_ecs","params":{"item":["cpu_ratio",null,null],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600,"algo":["sum","avg","min","max"]},"id":0}
+{"method":"sv_ecs","params":{"item":["cpu_ratio",null,null],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600,"algo":["avg","min","max"]},"id":0}
 #### 有子项目的请求:
 {"method":"sv_ecs","params":{"item":["disk","/dev/vda1","rdtps"],"instance_id":"i-77777","ts_range":[15000000,1600000],"interval":600,"algo":["sum","avg","min","max"]},"id":0}
 
 #### 成功返回（序列数据请求）:
 {"result":[[1519530310, ... ,1519530390],[10, ... ,20]],"id":0}
 #### 成功返回（取合数据请求）:
-{"result":[["sum","avg","min","max"],[100,30,10,40]],"id":0}
+{"result":[["avg","min","max"],[30,10,40]],"id":0}
 #### 出错返回：
 {"err":"error msg","id":0}
 
@@ -18,7 +18,7 @@
 - params 中的 instance_id 用于指定实例 ID；
 - params 中的 ts_range 用于指定时间区间，区间前后界限均闭合，仅支持 UNIX 时间戳格式（距 1970-01-01 00:00:00 的秒数）；     
 - params 中的 interval 用于指定数据样本的时间间隔，可以为任意能被 15 整除的非负整数，单位：秒；
-- algo 可选值有：sum/avg/min/max，若指定此项，将返回聚合结果样式，若不指定，则返回序列结果样式；
+- algo 可选值有：avg/min/max，若指定此项，将返回聚合结果样式，若不指定，则返回序列结果样式；
 - id 是由请求方指定的，会原样返回。    
 
 ## item 说明
@@ -97,7 +97,7 @@
 
 # 版本更新
 ## v0.2.6
-- 简单聚合算法支持："algo":["sum","avg","min","max"]；支持同时查询单个或多个聚合结果。
+- 简单聚合算法支持："algo":["avg","min","max"]；支持同时查询单个或多个聚合结果。
 ## v0.2.5
 - 修复：DB 与 CACHE 中同时存在数据时，会返回 result:[null, null] 的问题
 - 修复：阿里云限流导致的数据缺失问题
