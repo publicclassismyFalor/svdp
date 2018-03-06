@@ -223,6 +223,9 @@ pub fn go() {
 
             pgconn.execute("DELETE FROM sv_meta", &[]).unwrap();
             pgconn.execute(&format!("INSERT INTO sv_meta VALUES ({})", basestamp / 1000), &[]).unwrap();
+
+            /* must wait at least 60s, deal with aliyun's throttling limit */
+            thread::sleep(Duration::from_secs(60));
         }
 
         thread::sleep(Duration::from_millis(INTERVAL));
