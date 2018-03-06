@@ -1,4 +1,4 @@
-#[macro_use] mod sv;
+mod sv;
 mod sv_analyse;
 mod dp;
 
@@ -123,8 +123,8 @@ fn router(body: &str) -> Result<(String, i32), (String, i32)> {
     if 3 < capb.len() {
         match &capb[0..3] {
             b"sv_" => return sv::worker(body),
-            //b"SV_" => { },
-            //b"dp_" => { },
+            b"SV_" => return sv_analyse::worker(body),
+            b"dp_" => return dp::worker(body),
             _ => {
                 err!(body);
                 return Err(("method invalid".to_owned(), -1));
