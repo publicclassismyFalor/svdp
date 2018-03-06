@@ -123,7 +123,7 @@ fn router(body: &str) -> Result<(String, i32), (String, i32)> {
     if 3 < capb.len() {
         match &capb[0..3] {
             b"sv_" => return sv::worker(body),
-            b"SV_" => return sv_analyze::worker(body),
+            b"Sv_" => return sv_analyze::worker(body),
             b"dp_" => return dp::worker(body),
             _ => {
                 err!(body);
